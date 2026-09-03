@@ -21,5 +21,4 @@ CONFIG_MBEDTLS_HARDWARE_SHA=y
 CONFIG_MBEDTLS_HARDWARE_ECC=y
 CONFIG_MBEDTLS_HARDWARE_MPI=y
 
-# Partition table
-CONFIG_PARTITION_TABLE_CUSTOM=y
+# Partition table (use default single-factory for now)
