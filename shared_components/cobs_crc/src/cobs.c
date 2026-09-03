@@ -14,7 +14,7 @@ size_t cobs_encode(const uint8_t *src, size_t src_len, uint8_t *dst)
     }
 
     const uint8_t *src_end = src + src_len;
-    uint8_t *code_ptr = dst;  /* Pointer to the code byte slot */
+    uint8_t *code_ptr = dst; /* Pointer to the code byte slot */
     uint8_t *dst_ptr = dst + 1;
     uint8_t code = 0x01;
 

@@ -17,9 +17,8 @@ extern "C" {
 
 esp_err_t telemetry_buffer_init(void);
 esp_err_t telemetry_buffer_push(const decoded_telemetry_t *sample);
-size_t    telemetry_buffer_pop_batch(decoded_telemetry_t *out, size_t max_count,
-                                    uint32_t timeout_ms);
-size_t    telemetry_buffer_count(void);
+size_t telemetry_buffer_pop_batch(decoded_telemetry_t *out, size_t max_count, uint32_t timeout_ms);
+size_t telemetry_buffer_count(void);
 
 #ifdef __cplusplus
 }

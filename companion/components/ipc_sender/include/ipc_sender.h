@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "esp_err.h"
 #include "ipc_frame.h"
 
@@ -32,11 +32,8 @@ esp_err_t ipc_sender_init(void);
  *
  * @return ESP_OK on success.
  */
-esp_err_t ipc_sender_send_frame(ipc_msg_type_t type,
-                                const uint8_t *src_mac,
-                                int8_t rssi,
-                                const uint8_t *payload,
-                                size_t payload_len);
+esp_err_t ipc_sender_send_frame(ipc_msg_type_t type, const uint8_t *src_mac, int8_t rssi,
+                                const uint8_t *payload, size_t payload_len);
 
 #ifdef __cplusplus
 }
