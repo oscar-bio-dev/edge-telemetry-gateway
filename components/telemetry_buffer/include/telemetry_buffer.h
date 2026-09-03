@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2026 EcoTech Sensing
+ * SPDX-FileCopyrightText: 2026 oscar-bio-dev
  * SPDX-License-Identifier: Apache-2.0
  *
  * Telemetry Buffer — Static ring buffer for decoded samples.

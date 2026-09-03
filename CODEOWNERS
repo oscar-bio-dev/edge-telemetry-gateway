@@ -1,12 +1,12 @@
 # Edge Telemetry Gateway — Code Ownership
 
 # Default owner for everything
-*                                   @ecotech/embedded-team
+*                                   @oscar-bio-dev
 
 # Security-critical components (require 2 approvals)
-/components/cloud_transport/        @ecotech/security-team
-/components/companion_ota/          @ecotech/security-team
-/shared_components/cobs_crc/        @ecotech/embedded-team
+/components/cloud_transport/        @oscar-bio-dev
+/components/companion_ota/          @oscar-bio-dev
+/shared_components/cobs_crc/        @oscar-bio-dev
 
 # Companion firmware
-/companion/                         @ecotech/embedded-team
+/companion/                         @oscar-bio-dev

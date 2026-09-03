@@ -9,7 +9,7 @@
 ## Reporting a Vulnerability
 
 Report security vulnerabilities via GitHub private advisories or email
-security@ecotech-sensing.dev. We will respond within 72 hours.
+security@oscar-bio-dev. We will respond within 72 hours.
 
 ## SLA
 

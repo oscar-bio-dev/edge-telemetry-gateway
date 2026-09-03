@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2026 EcoTech Sensing
+ * SPDX-FileCopyrightText: 2026 oscar-bio-dev
  * SPDX-License-Identifier: Apache-2.0
  *
  * Companion OTA — Host-Driven firmware update for ESP32-C6 via esp-serial-flasher.

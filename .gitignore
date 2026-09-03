@@ -1,24 +1,52 @@
-# ESP-IDF build artifacts
+# ==============================================================================
+# .gitignore — Edge Telemetry Gateway (ESP-IDF dual-firmware)
+# ==============================================================================
+
+# ── ESP-IDF Build Artifacts ──────────────────────────────────────────────────
 build/
+companion/build/
 sdkconfig
 sdkconfig.old
+companion/sdkconfig
+companion/sdkconfig.old
 *.bin
 *.elf
 *.map
+*.img
 
-# Companion build artifacts
-companion/build/
-companion/sdkconfig
-companion/sdkconfig.old
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Dependencies
+# ── ESP-IDF Component Manager ───────────────────────────────────────────────
 managed_components/
 dependencies.lock
+companion/managed_components/
+companion/dependencies.lock
+
+# ── Nanopb Generated (rebuild from .proto) ──────────────────────────────────
+components/telemetry_decoder/generated/*.pb.c
+components/telemetry_decoder/generated/*.pb.h
+
+# ── IDE / Editor ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+
+# ── OS Cache ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+
+# ── Debugging ───────────────────────────────────────────────────────────────
+core
+*.core

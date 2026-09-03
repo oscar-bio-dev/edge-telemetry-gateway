@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2026 EcoTech Sensing
+ * SPDX-FileCopyrightText: 2026 oscar-bio-dev
  * SPDX-License-Identifier: Apache-2.0
  *
  * Edge Telemetry Gateway — Main Entry Point (ESP32-P4 Host)
