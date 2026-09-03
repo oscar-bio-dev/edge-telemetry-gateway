@@ -4,6 +4,7 @@
  */
 
 #include "cloud_transport.h"
+#include <stdbool.h>
 #include "esp_log.h"
 
 static const char *TAG = "cloud_transport";
