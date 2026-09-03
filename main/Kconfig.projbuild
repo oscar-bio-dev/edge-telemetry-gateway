@@ -1,0 +1,104 @@
+menu "Edge Telemetry Gateway Configuration"
+
+    config GCP_PROJECT_ID
+        string "Google Cloud Project ID"
+        default "setaesense-iot-core"
+        help
+            The Google Cloud project ID used for Pub/Sub publishing.
+            Assembled at runtime into the Pub/Sub REST endpoint:
+            https://pubsub.googleapis.com/v1/projects/<PROJECT_ID>/topics/<TOPIC>:publish
+
+    config GCP_PUB_SUB_TOPIC
+        string "Google Cloud Pub/Sub Topic"
+        default "room-telemetry-topic"
+        help
+            The Pub/Sub topic name where telemetry data will be published.
+
+    config IPC_UART_BAUD_RATE
+        int "IPC UART Baud Rate (Host <-> Companion)"
+        default 460800
+        range 115200 2000000
+        help
+            Baud rate for the UART bus connecting the ESP32-P4 host
+            to the ESP32-C6 companion. Default 460800 provides 4x
+            margin with 51K series/pull-up resistors on the SDIO traces.
+
+    config IPC_UART_TX_GPIO
+        int "IPC UART TX GPIO (Host -> Companion)"
+        default 15
+        help
+            P4 GPIO for UART TX towards C6. Default: GPIO15 (SDIO D1 trace).
+            Connected to C6 GPIO21 via R18 on the Waveshare board.
+
+    config IPC_UART_RX_GPIO
+        int "IPC UART RX GPIO (Host <- Companion)"
+        default 14
+        help
+            P4 GPIO for UART RX from C6. Default: GPIO14 (SDIO D0 trace).
+            Connected to C6 GPIO20 via R19 on the Waveshare board.
+
+    config COMPANION_RESET_GPIO
+        int "Companion Reset GPIO (C6 EN/CHIP_PU)"
+        default 54
+        help
+            P4 GPIO connected to C6 EN/CHIP_PU via R54 (0R).
+            Used by esp-serial-flasher for Host-Driven OTA.
+
+    config COMPANION_BOOT_GPIO
+        int "Companion Boot GPIO (C6 IO2 strapping)"
+        default 6
+        help
+            P4 GPIO connected to C6 IO2 via R52 (0R).
+            Driven LOW during reset to enter C6 download mode for OTA.
+
+    config ETH_PHY_ADDR
+        int "Ethernet PHY Address (IP101GRI)"
+        default 1
+        range 0 31
+        help
+            MDIO address of the IP101GRI Ethernet PHY on the Waveshare board.
+
+    config ETH_PHY_RST_GPIO
+        int "Ethernet PHY Reset GPIO"
+        default -1
+        range -1 54
+        help
+            GPIO connected to PHY reset pin. Set -1 if not connected.
+
+    config ETH_MDC_GPIO
+        int "Ethernet MDC GPIO"
+        default 31
+        help
+            GPIO for RMII MDC signal to IP101GRI PHY.
+
+    config ETH_MDIO_GPIO
+        int "Ethernet MDIO GPIO"
+        default 52
+        help
+            GPIO for RMII MDIO signal to IP101GRI PHY.
+
+    config TELEMETRY_QUEUE_SIZE
+        int "Telemetry Queue Depth (max buffered samples)"
+        default 64
+        range 16 256
+        help
+            Number of decoded telemetry samples the ring buffer can hold.
+            Sized for 50 nodes with margin. Each slot is ~64 bytes.
+
+    config CLOUD_PUBLISH_BATCH_SIZE
+        int "Cloud Publish Batch Size"
+        default 10
+        range 1 50
+        help
+            Number of telemetry samples to batch into a single
+            Pub/Sub publish request. Reduces HTTP overhead.
+
+    config COMPANION_HEARTBEAT_TIMEOUT_MS
+        int "Companion Heartbeat Timeout (ms)"
+        default 30000
+        range 5000 120000
+        help
+            If no heartbeat is received from the C6 companion within
+            this timeout, the watchdog triggers a recovery action.
+
+endmenu

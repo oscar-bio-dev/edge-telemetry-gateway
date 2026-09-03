@@ -1,0 +1,39 @@
+menu "Edge Companion (C6) Configuration"
+
+    config ESPNOW_CHANNEL
+        int "ESP-NOW Wi-Fi Channel"
+        default 1
+        range 1 14
+        help
+            Wi-Fi channel for ESP-NOW reception. Must match the channel
+            configured on the sensor nodes (room-monitoring project).
+
+    config IPC_UART_BAUD_RATE
+        int "IPC UART Baud Rate (Companion -> Host)"
+        default 460800
+        range 115200 2000000
+        help
+            Baud rate for the UART bus towards the ESP32-P4 host.
+
+    config IPC_UART_TX_GPIO
+        int "IPC UART TX GPIO (C6 -> P4)"
+        default 20
+        help
+            C6 GPIO for UART TX towards P4. Default: GPIO20 (SDIO D0 trace).
+            Connected to P4 GPIO14 via R19 on the Waveshare board.
+
+    config IPC_UART_RX_GPIO
+        int "IPC UART RX GPIO (C6 <- P4)"
+        default 21
+        help
+            C6 GPIO for UART RX from P4. Default: GPIO21 (SDIO D1 trace).
+            Connected to P4 GPIO15 via R18 on the Waveshare board.
+
+    config HEARTBEAT_INTERVAL_MS
+        int "Heartbeat Interval (ms)"
+        default 10000
+        range 1000 60000
+        help
+            Interval between heartbeat messages sent to the P4 host.
+
+endmenu

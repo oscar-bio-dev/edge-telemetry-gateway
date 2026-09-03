@@ -1,0 +1,14 @@
+# ===========================================================================
+#  Edge Companion C6 — Common sdkconfig defaults
+# ===========================================================================
+
+CONFIG_IDF_TARGET="esp32c6"
+
+# Minimal footprint — no bluetooth, no extra features
+CONFIG_BT_ENABLED=n
+
+# WiFi (required for ESP-NOW)
+CONFIG_ESP_WIFI_MODE_STATION=y
+
+# Log level
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
