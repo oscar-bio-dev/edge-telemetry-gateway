@@ -42,8 +42,9 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    /* ── Phase 1: Telemetry Buffer (must be ready before producers) ── */
+    /* ── Phase 1: Telemetry Buffer & Decoder (must be ready before producers) ── */
     ESP_ERROR_CHECK(telemetry_buffer_init());
+    ESP_ERROR_CHECK(telemetry_decoder_init());
     ESP_LOGI(TAG, "Telemetry buffer initialized (depth=%d)", CONFIG_TELEMETRY_QUEUE_SIZE);
 
     /* ── Phase 2: Ethernet (Core 0) ───────────────────────── */

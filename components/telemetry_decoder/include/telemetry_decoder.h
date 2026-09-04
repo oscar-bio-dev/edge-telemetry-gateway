@@ -1,8 +1,6 @@
 /*
  * SPDX-FileCopyrightText: 2026 oscar-bio-dev
  * SPDX-License-Identifier: Apache-2.0
- *
- * Telemetry Decoder — Nanopb static decode of EnvironmentalData.
  */
 
 #pragma once
@@ -10,39 +8,30 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "esp_err.h"
+#include "telemetry.pb.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Decoded telemetry sample with metadata from IPC frame. */
-typedef struct {
-    uint8_t src_mac[6];
-    int8_t rssi;
-    uint16_t seq_num;
-    uint32_t timestamp;
-    float temperature;
-    float humidity;
-    float iaq;
-    uint32_t iaq_accuracy;
-    uint32_t co2_ppm;
-    float pm1_0;
-    float pm2_5;
-    float pm10_0;
-    uint32_t battery_mv;
-    uint32_t sleep_cycles;
-} decoded_telemetry_t;
+/**
+ * @brief Initialize the telemetry decoder component.
+ */
+esp_err_t telemetry_decoder_init(void);
 
 /**
- * @brief Decode a Protobuf-encoded EnvironmentalData payload.
+ * @brief Decode raw Protobuf bytes into a C struct and inject the device identity.
  *
- * @param[in]  pb_data   Raw Protobuf bytes.
- * @param[in]  pb_len    Length of Protobuf data.
- * @param[out] out       Decoded telemetry structure.
+ * @param[in]  raw_pb      Pointer to raw Protobuf data from UART/COBS.
+ * @param[in]  len         Length of raw_pb in bytes.
+ * @param[in]  src_mac     Source MAC address (6 bytes) to format into device_id.
+ *                         If NULL, device_id will be empty.
+ * @param[out] out_data    Pointer to output struct to populate.
  *
- * @return ESP_OK on success, ESP_ERR_INVALID_ARG on decode failure.
+ * @return ESP_OK on success, or an error code on deserialization failure.
  */
-esp_err_t telemetry_decode(const uint8_t *pb_data, size_t pb_len, decoded_telemetry_t *out);
+esp_err_t telemetry_decode_payload(const uint8_t *raw_pb, size_t len, const uint8_t *src_mac,
+                                   telemetry_TelemetryPayload *out_data);
 
 #ifdef __cplusplus
 }

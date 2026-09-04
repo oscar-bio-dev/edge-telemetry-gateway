@@ -13,6 +13,8 @@
 #include "freertos/task.h"
 #include "ipc_frame.h"
 #include "sdkconfig.h"
+#include "telemetry_buffer.h"
+#include "telemetry_decoder.h"
 
 #define UART_PORT_NUM    UART_NUM_1
 #define UART_BAUD_RATE   CONFIG_IPC_UART_BAUD_RATE
@@ -53,15 +55,25 @@ static void ipc_ingest_task(void *arg)
                         if (calc_crc == expected_crc) {
                             ipc_header_t *header = (ipc_header_t *)decoded_buf;
 
-                            // Temporary log until telemetry_decoder is fully implemented
-                            ESP_LOGI(
-                                TAG,
-                                "Valid Frame RX! Type: 0x%02X, MAC: %02X:%02X:%02X:%02X:%02X:%02X, "
-                                "Seq: %d, RSSI: %d, Payload Size: %d",
-                                header->type, header->src_mac[0], header->src_mac[1],
-                                header->src_mac[2], header->src_mac[3], header->src_mac[4],
-                                header->src_mac[5], header->seq_num, header->rssi,
-                                (int)(decoded_len - sizeof(ipc_header_t) - 2));
+                            // Decode Protobuf payload
+                            telemetry_TelemetryPayload payload_struct;
+                            size_t pb_len = decoded_len - sizeof(ipc_header_t) - 2;
+                            const uint8_t *pb_data = decoded_buf + sizeof(ipc_header_t);
+
+                            esp_err_t decode_err = telemetry_decode_payload(
+                                pb_data, pb_len, header->src_mac, &payload_struct);
+                            if (decode_err == ESP_OK) {
+                                // Push to Ring Buffer
+                                esp_err_t push_err = telemetry_buffer_push(&payload_struct);
+                                if (push_err == ESP_OK) {
+                                    ESP_LOGD(TAG, "Telemetry pushed to buffer. MAC: %s",
+                                             payload_struct.device_id);
+                                } else {
+                                    ESP_LOGW(TAG, "Telemetry dropped. Buffer full.");
+                                }
+                            } else {
+                                ESP_LOGE(TAG, "Failed to decode telemetry payload");
+                            }
 
                         } else {
                             ESP_LOGW(TAG, "CRC Error: Calc 0x%04X != Exp 0x%04X", calc_crc,

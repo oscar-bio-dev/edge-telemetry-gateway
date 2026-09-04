@@ -14,7 +14,7 @@
  Todos los campos son opcionales para evitar overhead en el aire */
 typedef struct _telemetry_TelemetryPayload {
     /* Identity & Meta (Inyectado por P4 Gateway antes de subir a la nube) */
-    pb_callback_t device_id; /* string format "sensor-XX:XX:XX:XX:XX:XX" */
+    char device_id[32]; /* string format "sensor-XX:XX:XX:XX:XX:XX" */
     /* Timestamp (Inyectado por Nodo o Gateway) */
     uint64_t timestamp_ms; /* UTC Epoch en ms */
     /* Ambiental y Calidad de Aire (BME688 / SCD41) */
@@ -49,54 +49,51 @@ typedef struct _telemetry_TelemetryPayload {
     uint32_t sleep_cycles; /* Hardware wake count */
 } telemetry_TelemetryPayload;
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define telemetry_TelemetryPayload_init_default                                     \
-    {{{NULL}, NULL}, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, \
-     false,          0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
-#define telemetry_TelemetryPayload_init_zero                                        \
-    {{{NULL}, NULL}, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, \
-     false,          0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
+#define telemetry_TelemetryPayload_init_default  {"", 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
+#define telemetry_TelemetryPayload_init_zero     {"", 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define telemetry_TelemetryPayload_device_id_tag        1
-#define telemetry_TelemetryPayload_timestamp_ms_tag     2
-#define telemetry_TelemetryPayload_temperature_tag      3
-#define telemetry_TelemetryPayload_humidity_tag         4
-#define telemetry_TelemetryPayload_pressure_tag         5
-#define telemetry_TelemetryPayload_gas_resistance_tag   6
-#define telemetry_TelemetryPayload_iaq_tag              7
-#define telemetry_TelemetryPayload_co2_tag              8
-#define telemetry_TelemetryPayload_pm1_0_tag            9
-#define telemetry_TelemetryPayload_pm2_5_tag            10
-#define telemetry_TelemetryPayload_pm10_0_tag           11
-#define telemetry_TelemetryPayload_ph_tag               12
+#define telemetry_TelemetryPayload_device_id_tag 1
+#define telemetry_TelemetryPayload_timestamp_ms_tag 2
+#define telemetry_TelemetryPayload_temperature_tag 3
+#define telemetry_TelemetryPayload_humidity_tag  4
+#define telemetry_TelemetryPayload_pressure_tag  5
+#define telemetry_TelemetryPayload_gas_resistance_tag 6
+#define telemetry_TelemetryPayload_iaq_tag       7
+#define telemetry_TelemetryPayload_co2_tag       8
+#define telemetry_TelemetryPayload_pm1_0_tag     9
+#define telemetry_TelemetryPayload_pm2_5_tag     10
+#define telemetry_TelemetryPayload_pm10_0_tag    11
+#define telemetry_TelemetryPayload_ph_tag        12
 #define telemetry_TelemetryPayload_dissolved_oxygen_tag 13
-#define telemetry_TelemetryPayload_battery_mv_tag       14
-#define telemetry_TelemetryPayload_sleep_cycles_tag     15
+#define telemetry_TelemetryPayload_battery_mv_tag 14
+#define telemetry_TelemetryPayload_sleep_cycles_tag 15
 
 /* Struct field encoding specification for nanopb */
-#define telemetry_TelemetryPayload_FIELDLIST(X, a)      \
-    X(a, CALLBACK, SINGULAR, STRING, device_id, 1)      \
-    X(a, STATIC, SINGULAR, UINT64, timestamp_ms, 2)     \
-    X(a, STATIC, OPTIONAL, FLOAT, temperature, 3)       \
-    X(a, STATIC, OPTIONAL, FLOAT, humidity, 4)          \
-    X(a, STATIC, OPTIONAL, FLOAT, pressure, 5)          \
-    X(a, STATIC, OPTIONAL, FLOAT, gas_resistance, 6)    \
-    X(a, STATIC, OPTIONAL, FLOAT, iaq, 7)               \
-    X(a, STATIC, OPTIONAL, UINT32, co2, 8)              \
-    X(a, STATIC, OPTIONAL, FLOAT, pm1_0, 9)             \
-    X(a, STATIC, OPTIONAL, FLOAT, pm2_5, 10)            \
-    X(a, STATIC, OPTIONAL, FLOAT, pm10_0, 11)           \
-    X(a, STATIC, OPTIONAL, FLOAT, ph, 12)               \
-    X(a, STATIC, OPTIONAL, FLOAT, dissolved_oxygen, 13) \
-    X(a, STATIC, OPTIONAL, UINT32, battery_mv, 14)      \
-    X(a, STATIC, OPTIONAL, UINT32, sleep_cycles, 15)
-#define telemetry_TelemetryPayload_CALLBACK pb_default_field_callback
-#define telemetry_TelemetryPayload_DEFAULT  NULL
+#define telemetry_TelemetryPayload_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   device_id,         1) \
+X(a, STATIC,   SINGULAR, UINT64,   timestamp_ms,      2) \
+X(a, STATIC,   OPTIONAL, FLOAT,    temperature,       3) \
+X(a, STATIC,   OPTIONAL, FLOAT,    humidity,          4) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pressure,          5) \
+X(a, STATIC,   OPTIONAL, FLOAT,    gas_resistance,    6) \
+X(a, STATIC,   OPTIONAL, FLOAT,    iaq,               7) \
+X(a, STATIC,   OPTIONAL, UINT32,   co2,               8) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pm1_0,             9) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pm2_5,            10) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pm10_0,           11) \
+X(a, STATIC,   OPTIONAL, FLOAT,    ph,               12) \
+X(a, STATIC,   OPTIONAL, FLOAT,    dissolved_oxygen,  13) \
+X(a, STATIC,   OPTIONAL, UINT32,   battery_mv,       14) \
+X(a, STATIC,   OPTIONAL, UINT32,   sleep_cycles,     15)
+#define telemetry_TelemetryPayload_CALLBACK NULL
+#define telemetry_TelemetryPayload_DEFAULT NULL
 
 extern const pb_msgdesc_t telemetry_TelemetryPayload_msg;
 
@@ -104,7 +101,8 @@ extern const pb_msgdesc_t telemetry_TelemetryPayload_msg;
 #define telemetry_TelemetryPayload_fields &telemetry_TelemetryPayload_msg
 
 /* Maximum encoded size of messages (where known) */
-/* telemetry_TelemetryPayload_size depends on runtime parameters */
+#define TELEMETRY_TELEMETRY_PB_H_MAX_SIZE        telemetry_TelemetryPayload_size
+#define telemetry_TelemetryPayload_size          112
 
 #ifdef __cplusplus
 } /* extern "C" */
