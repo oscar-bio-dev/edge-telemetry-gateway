@@ -14,6 +14,21 @@ menu "Edge Telemetry Gateway Configuration"
         help
             The Pub/Sub topic name where telemetry data will be published.
 
+    config GCP_PUB_SUB_DIAGNOSTICS_TOPIC
+        string "Google Cloud Pub/Sub Diagnostics Topic"
+        default "gateway-diagnostics-topic"
+        help
+            The Pub/Sub topic name where Gateway health and Degraded Mode
+            alerts (e.g. MicroSD failure) are published.
+
+    config SDCARD_LDO_CHANNEL
+        int "MicroSD LDO Channel (PMU)"
+        default 4
+        range 1 5
+        help
+            The internal ESP32-P4 LDO channel that powers the MicroSD slot.
+            Waveshare typically uses LDO 4 or 5 at 3.3V for the SD VDD.
+
     config IPC_UART_BAUD_RATE
         int "IPC UART Baud Rate (Host <-> Companion)"
         default 460800

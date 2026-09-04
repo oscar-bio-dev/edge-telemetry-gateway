@@ -1,0 +1,2 @@
+diagnostics.GatewayHealthEvent.gateway_id max_size:32
+diagnostics.GatewayHealthEvent.alert_message max_size:128

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package diagnostics;
+
+// Esquema de salud y estado del Gateway (ESP32-P4)
+// Publicado de forma independiente a la telemetría de los nodos.
+message GatewayHealthEvent {
+    // Identity
+    string gateway_id = 1;        // MAC del ESP32-P4 (ej. "gateway-AA:BB:CC:DD:EE:FF")
+    
+    // Status
+    bool is_degraded_mode = 2;    // True si la MicroSD ha fallado o fue extraída
+    
+    // MicroSD / Storage Diagnostics
+    bool sd_card_mounted = 3;     // Estado físico del montaje VFS
+    uint32 sd_card_total_mb = 4;
+    uint32 sd_card_free_mb = 5;
+    uint32 sd_io_errors = 6;      // Contador acumulado de errores I/O
+    
+    // Uptime & System
+    uint32 uptime_seconds = 7;
+    uint32 free_heap_bytes = 8;
+    
+    // Event Trigger
+    string alert_message = 9;     // Opcional: Mensaje crítico para operadores
+}
