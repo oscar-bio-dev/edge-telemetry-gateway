@@ -27,6 +27,7 @@ components/telemetry_decoder/generated/*.pb.h
 # ── IDE / Editor ────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+.agents/
 *.swp
 *.swo
 *~

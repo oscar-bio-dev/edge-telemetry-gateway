@@ -19,6 +19,9 @@ chore: update pre-commit hooks to clang-format 18
 
 ## Pull Requests
 
-- Link to the relevant Issue.
-- Minimum 1 approval required (2 for security/boot/power changes).
-- All CI checks must pass.
+- **Strict Rulesets:** Branch protection has been upgraded to Rulesets.
+- **Approvals:** Minimum 1 approval required (2 for security/boot/power changes).
+- **Required Checks:** `format`, `lint`, `build`, `size`, `unit-tests`, and `security` MUST pass.
+- **CODEOWNERS:** Changes to `.github/`, `docs/adr/`, `partitions*`, `boot`, security, or power management require explicit specialized owner review.
+
+> **Note:** For full governance policies, please refer to the Workspace Global Policy (`AGENTS.md`) and the Layer 2 GitHub Standard.

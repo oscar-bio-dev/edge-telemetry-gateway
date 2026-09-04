@@ -2,7 +2,7 @@
 
 > **Edge-to-Cloud telemetry hub** for ultra-low-power environmental monitoring networks.
 > Receives ESP-NOW bursts from battery-powered sensor nodes and publishes to
-> Google Cloud Pub/Sub over hardwired Ethernet with JWT/ECDSA hardware-accelerated authentication.
+> a Rust Backend via HTTPS mTLS with JWT/ECDSA hardware-accelerated authentication.
 
 ---
 
@@ -22,12 +22,12 @@
                           │                                                          │
   Sensor Nodes            │  ESP32-C6 Companion        ESP32-P4 Host                │
   (room-monitoring)       │  ┌──────────────────┐      ┌──────────────────────────┐  │
-  ┌──────────────┐        │  │                  │ UART │                          │  │
-  │ BME688       │ ESP-NOW│  │  Wi-Fi STA       │460Kbps                         │  │  PoE
-  │ SCD41        │────────┼─►│  ESP-NOW RX  ────┼──────►  COBS decode            │  │ Ethernet
-  │ BMV080       │ burst  │  │  COBS encode     │ D0/D1│  Nanopb Protobuf decode │──┼──────► Google
-  │ Protobuf     │  (ms)  │  │  CRC16 verify    │      │  JWT/ES256 (ECDSA_DS HW)│  │         Cloud
-  │ Deep Sleep   │        │  │                  │      │  HTTPS → Pub/Sub        │  │        Pub/Sub
+  ┌──────────────┐        │  │                  │ UART │                          │  │  PoE
+  │ BME688       │ ESP-NOW│  │  Wi-Fi STA       │460Kbps                         │  │  Ethernet
+  │ SCD41        │────────┼─►│  ESP-NOW RX  ────┼──────►  COBS decode            │  │  HTTPS mTLS
+  │ BMV080       │ burst  │  │  COBS encode     │ D0/D1│  Nanopb Protobuf decode │──┼──────► Rust
+  │ Protobuf     │  (ms)  │  │  CRC16 verify    │      │  JWT/ES256 (ECDSA_DS HW)│  │        Backend
+  │ Deep Sleep   │        │  │                  │      │  HTTPS → Backend        │  │
   └──────────────┘        │  └──────────────────┘      └──────────────────────────┘  │
                           │       ▲ GPIO20/21               │ EMAC + IP101GRI       │
                           │       │ (SDIO D0/D1 traces)     │ RMII 100Mbit/s        │
@@ -41,9 +41,9 @@
 
 2. **C6 Companion** receives the ESP-NOW frame, wraps it in a **COBS-encoded IPC frame** (10-byte header: `type | src_mac[6] | seq_num | rssi` + Protobuf payload + CRC16-CCITT), and transmits over **UART at 460800 bps** through the board's internal SDIO D0/D1 traces (P4 GPIO14 ← C6 GPIO20, P4 GPIO15 → C6 GPIO21).
 
-3. **P4 Host** decodes the COBS frame on Core 1 (`ipc_ingest_task`), verifies CRC16, decodes Protobuf with Nanopb (zero-allocation), and enqueues the sample into a static ring buffer (PSRAM-backed, 64 slots).
+3. **P4 Host** decodes the COBS frame on Core 1 (`ipc_ingest_task`), verifies CRC16, decodes Protobuf with Nanopb (zero-allocation), injects the node's MAC as the `device_id`, and enqueues the sample into a static ring buffer.
 
-4. **Cloud uplink task** on Core 0 pops batches from the buffer, signs a **JWT (ES256)** using the P4's **ECDSA\_DS hardware accelerator** (private key in eFuse, never software-readable), and publishes to **Google Cloud Pub/Sub** via HTTPS over the native **Ethernet** (EMAC + IP101GRI RMII PHY, PoE powered).
+4. **Cloud uplink task** on Core 0 pops batches from the buffer, signs a **JWT (ES256)** using the P4's **ECDSA\_DS hardware accelerator** (private key in eFuse), and publishes to the **Rust Backend** via **HTTPS mTLS** over native Ethernet (EMAC + IP101GRI RMII PHY, PoE powered).
 
 ### Why Not ESP-Hosted?
 
@@ -60,8 +60,8 @@ edge-telemetry-gateway/
 ├── components/
 │   ├── ipc_transport/                ← UART RX + COBS decode (Core 1)
 │   ├── telemetry_decoder/            ← Nanopb static decode
-│   ├── telemetry_buffer/             ← Ring buffer (zero-alloc, PSRAM)
-│   ├── cloud_transport/              ← HTTPS + JWT/ECDSA → Pub/Sub
+│   ├── telemetry_buffer/             ← Ring buffer (zero-alloc, soon to be SPIFFS-backed)
+│   ├── cloud_transport/              ← HTTPS mTLS + JWT/ECDSA → Backend
 │   ├── eth_manager/                  ← EMAC + IP101GRI RMII + lwIP
 │   ├── companion_ota/                ← Host-Driven OTA via esp-serial-flasher
 │   └── diagnostics/                  ← Health checks, companion watchdog
@@ -75,9 +75,8 @@ edge-telemetry-gateway/
 │       └── heartbeat/                ← Alive signal to P4
 │
 ├── shared_components/
-│   └── cobs_crc/                     ← COBS codec + CRC16-CCITT (shared)
-│
-├── proto/telemetry.proto             ← Protobuf schema (shared with nodes)
+│   ├── cobs_crc/                     ← COBS codec + CRC16-CCITT (shared)
+│   └── proto/telemetry.proto         ← Single Source of Truth Protobuf schema
 ├── docs/adr/                         ← Architecture Decision Records
 └── scripts/flash_companion.sh        ← Flash C6 via H7 debug header
 ```
@@ -109,13 +108,13 @@ All parameters are configurable via `idf.py menuconfig`:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `GCP_PROJECT_ID` | `setaesense-iot-core` | Google Cloud project |
-| `GCP_PUB_SUB_TOPIC` | `room-telemetry-topic` | Pub/Sub topic name |
+| `BACKEND_URL` | `https://api.setaesense.local` | Rust backend endpoint |
+| `BACKEND_MTLS_PORT` | `8443` | mTLS connection port |
 | `IPC_UART_BAUD_RATE` | `460800` | UART speed (Host ↔ Companion) |
 | `ESPNOW_CHANNEL` | `1` | Wi-Fi channel (must match nodes) |
 | `ETH_MDC_GPIO` / `ETH_MDIO_GPIO` | `31` / `52` | Ethernet PHY MDIO bus |
 | `TELEMETRY_QUEUE_SIZE` | `64` | Ring buffer depth (samples) |
-| `CLOUD_PUBLISH_BATCH_SIZE` | `10` | Samples per Pub/Sub request |
+| `CLOUD_PUBLISH_BATCH_SIZE` | `10` | Samples per HTTPS request |
 | `COMPANION_HEARTBEAT_TIMEOUT_MS` | `30000` | C6 watchdog timeout |
 
 ## Component Status
@@ -128,7 +127,7 @@ All parameters are configurable via `idf.py menuconfig`:
 | IPC transport (UART) | 🔲 Stub | Core 1 ingest task pending |
 | ESP-NOW receiver (C6) | 🔲 Stub | Wi-Fi STA + broadcast RX pending |
 | Ethernet manager | 🔲 Stub | EMAC + IP101GRI + lwIP pending |
-| Cloud transport | 🔲 Stub | JWT/ECDSA + Pub/Sub REST pending |
+| Cloud transport | 🔲 Stub | JWT/ECDSA + HTTPS mTLS REST pending |
 | Telemetry buffer | 🔲 Stub | PSRAM ring buffer pending |
 | Host-Driven OTA | 🔲 Stub | esp-serial-flasher integration pending |
 | Diagnostics | 🔲 Stub | Watchdog + health checks pending |
@@ -139,6 +138,8 @@ All parameters are configurable via `idf.py menuconfig`:
 |---|---|---|
 | [001](docs/adr/001-bypass-esp-hosted.md) | Bypass ESP-Hosted — C6 as dedicated ESP-NOW proxy | Accepted |
 | [002](docs/adr/002-uart-ipc-over-sdio-traces.md) | UART IPC over internal SDIO D0/D1 traces with COBS | Accepted |
+| 003 | Unified Single Source of Truth Protobuf Schema | Accepted |
+| 004 | Direct HTTPS mTLS to Rust Backend (No Pub/Sub) | Accepted |
 
 ## License
 
