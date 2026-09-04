@@ -3,5 +3,3 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES nanopb
 )
-
-nanopb_generate_cpp(PROTO_SRCS PROTO_HDRS telemetry.proto)
