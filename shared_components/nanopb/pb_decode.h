@@ -61,19 +61,15 @@ struct pb_istream_s {
 
 #ifdef PB_MESSAGE_NESTING_MAX
 #ifndef PB_NO_ERRMSG
-#define PB_ISTREAM_EMPTY                                                                                               \
-    { 0, 0, 0, 0, 0 }
+#define PB_ISTREAM_EMPTY {0, 0, 0, 0, 0}
 #else
-#define PB_ISTREAM_EMPTY                                                                                               \
-    { 0, 0, 0, 0 }
+#define PB_ISTREAM_EMPTY {0, 0, 0, 0}
 #endif
 #else
 #ifndef PB_NO_ERRMSG
-#define PB_ISTREAM_EMPTY                                                                                               \
-    { 0, 0, 0, 0 }
+#define PB_ISTREAM_EMPTY {0, 0, 0, 0}
 #else
-#define PB_ISTREAM_EMPTY                                                                                               \
-    { 0, 0, 0 }
+#define PB_ISTREAM_EMPTY {0, 0, 0}
 #endif
 #endif
 
@@ -122,15 +118,17 @@ bool pb_decode(pb_istream_t *stream, const pb_msgdesc_t *fields, void *dest_stru
  *
  * Multiple flags can be combined with bitwise or (| operator)
  */
-#define PB_DECODE_NOINIT 0x01U
-#define PB_DECODE_DELIMITED 0x02U
+#define PB_DECODE_NOINIT         0x01U
+#define PB_DECODE_DELIMITED      0x02U
 #define PB_DECODE_NULLTERMINATED 0x04U
-bool pb_decode_ex(pb_istream_t *stream, const pb_msgdesc_t *fields, void *dest_struct, unsigned int flags);
+bool pb_decode_ex(pb_istream_t *stream, const pb_msgdesc_t *fields, void *dest_struct,
+                  unsigned int flags);
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
-#define pb_decode_noinit(s, f, d) pb_decode_ex(s, f, d, PB_DECODE_NOINIT)
+#define pb_decode_noinit(s, f, d)    pb_decode_ex(s, f, d, PB_DECODE_NOINIT)
 #define pb_decode_delimited(s, f, d) pb_decode_ex(s, f, d, PB_DECODE_DELIMITED)
-#define pb_decode_delimited_noinit(s, f, d) pb_decode_ex(s, f, d, PB_DECODE_DELIMITED | PB_DECODE_NOINIT)
+#define pb_decode_delimited_noinit(s, f, d) \
+    pb_decode_ex(s, f, d, PB_DECODE_DELIMITED | PB_DECODE_NOINIT)
 #define pb_decode_nullterminated(s, f, d) pb_decode_ex(s, f, d, PB_DECODE_NULLTERMINATED)
 
 /* Release any allocated pointer fields. If you use dynamic allocation, you should

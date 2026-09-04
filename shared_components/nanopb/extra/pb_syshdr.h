@@ -16,21 +16,21 @@
 #include <stdint.h>
 #else
 /* You will need to modify these to match the word size of your platform. */
-typedef signed char        int8_t;
-typedef unsigned char      uint8_t;
-typedef signed short       int16_t;
-typedef unsigned short     uint16_t;
-typedef signed int         int32_t;
-typedef unsigned int       uint32_t;
-typedef signed long long   int64_t;
+typedef signed char int8_t;
+typedef unsigned char uint8_t;
+typedef signed short int16_t;
+typedef unsigned short uint16_t;
+typedef signed int int32_t;
+typedef unsigned int uint32_t;
+typedef signed long long int64_t;
 typedef unsigned long long uint64_t;
 
 /* These are ok for most platforms, unless uint8_t is actually not available,
  * in which case you should give the smallest available type. */
-typedef int8_t   int_least8_t;
-typedef uint8_t  uint_least8_t;
-typedef uint8_t  uint_fast8_t;
-typedef int16_t  int_least16_t;
+typedef int8_t int_least8_t;
+typedef uint8_t uint_least8_t;
+typedef uint8_t uint_fast8_t;
+typedef int16_t int_least16_t;
 typedef uint16_t uint_least16_t;
 #endif
 
@@ -40,7 +40,7 @@ typedef uint16_t uint_least16_t;
 #else
 
 typedef uint32_t size_t;
-#define offsetof(st, m) ((size_t) (&((st *) 0)->m))
+#define offsetof(st, m) ((size_t)(&((st *)0)->m))
 
 #ifndef NULL
 #define NULL 0
@@ -56,7 +56,7 @@ typedef uint32_t size_t;
 #ifndef __cplusplus
 typedef int bool;
 #define false 0
-#define true 1
+#define true  1
 #endif
 
 #endif
@@ -67,7 +67,7 @@ typedef int bool;
 #include <stdlib.h>
 #else
 void *realloc(void *ptr, size_t size);
-void  free(void *ptr);
+void free(void *ptr);
 #endif
 #endif
 
@@ -77,7 +77,8 @@ void  free(void *ptr);
 #else
 
 /* Implementations are from the Public Domain C Library (PDCLib). */
-static size_t strlen(const char *s) {
+static size_t strlen(const char *s)
+{
     size_t rc = 0;
     while (s[rc]) {
         ++rc;
@@ -85,19 +86,21 @@ static size_t strlen(const char *s) {
     return rc;
 }
 
-static void *memcpy(void *s1, const void *s2, size_t n) {
-    char       *dest = (char *) s1;
-    const char *src  = (const char *) s2;
+static void *memcpy(void *s1, const void *s2, size_t n)
+{
+    char *dest = (char *)s1;
+    const char *src = (const char *)s2;
     while (n--) {
         *dest++ = *src++;
     }
     return s1;
 }
 
-static void *memset(void *s, int c, size_t n) {
-    unsigned char *p = (unsigned char *) s;
+static void *memset(void *s, int c, size_t n)
+{
+    unsigned char *p = (unsigned char *)s;
     while (n--) {
-        *p++ = (unsigned char) c;
+        *p++ = (unsigned char)c;
     }
     return s;
 }

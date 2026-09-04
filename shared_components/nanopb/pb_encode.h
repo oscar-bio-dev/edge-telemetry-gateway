@@ -87,12 +87,13 @@ bool pb_encode(pb_ostream_t *stream, const pb_msgdesc_t *fields, const void *src
  *                           protobuf implementations, so PB_ENCODE_DELIMITED
  *                           is a better option for compatibility.
  */
-#define PB_ENCODE_DELIMITED 0x02U
+#define PB_ENCODE_DELIMITED      0x02U
 #define PB_ENCODE_NULLTERMINATED 0x04U
-bool pb_encode_ex(pb_ostream_t *stream, const pb_msgdesc_t *fields, const void *src_struct, unsigned int flags);
+bool pb_encode_ex(pb_ostream_t *stream, const pb_msgdesc_t *fields, const void *src_struct,
+                  unsigned int flags);
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
-#define pb_encode_delimited(s, f, d) pb_encode_ex(s, f, d, PB_ENCODE_DELIMITED)
+#define pb_encode_delimited(s, f, d)      pb_encode_ex(s, f, d, PB_ENCODE_DELIMITED)
 #define pb_encode_nullterminated(s, f, d) pb_encode_ex(s, f, d, PB_ENCODE_NULLTERMINATED)
 
 /* Encode the message to get the size of the encoded data, but do not store
@@ -122,11 +123,9 @@ pb_ostream_t pb_ostream_from_buffer(pb_byte_t *buf, size_t bufsize);
  *    printf("Message size is %d\n", stream.bytes_written);
  */
 #ifndef PB_NO_ERRMSG
-#define PB_OSTREAM_SIZING                                                                                              \
-    { 0, 0, 0, 0, 0 }
+#define PB_OSTREAM_SIZING {0, 0, 0, 0, 0}
 #else
-#define PB_OSTREAM_SIZING                                                                                              \
-    { 0, 0, 0, 0 }
+#define PB_OSTREAM_SIZING {0, 0, 0, 0}
 #endif
 
 /* Function to write into a pb_ostream_t stream. You can use this if you need

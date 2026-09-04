@@ -7,6 +7,3 @@
 #endif
 
 PB_BIND(telemetry_TelemetryPayload, telemetry_TelemetryPayload, AUTO)
-
-
-
