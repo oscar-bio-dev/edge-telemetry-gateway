@@ -2,7 +2,7 @@
 
 > **Edge-to-Cloud telemetry hub** for ultra-low-power environmental monitoring networks.
 > Receives ESP-NOW bursts from battery-powered sensor nodes and publishes to
-> a Rust Backend via HTTPS mTLS with JWT/ECDSA hardware-accelerated authentication.
+> Google Cloud Pub/Sub via HTTPS mTLS with JWT/ECDSA hardware-accelerated authentication.
 
 ---
 
@@ -45,7 +45,7 @@
 
 3. **P4 Host** decodes the COBS frame on Core 1 (`ipc_ingest_task`), verifies CRC16, decodes Protobuf with Nanopb (zero-allocation), injects the node's MAC as the `device_id`, and enqueues the sample into a static ring buffer.
 
-4. **Cloud uplink task** on Core 0 pops batches from the buffer, signs a **JWT (ES256)** using the P4's **ECDSA\_DS hardware accelerator** (private key in eFuse), and publishes to the **Rust Backend** via **HTTPS mTLS** over native Ethernet (EMAC + IP101GRI RMII PHY, PoE powered).
+4. **Cloud uplink task** on Core 0 pops batches from the buffer, signs a **JWT (ES256)** using the P4's **ECDSA\_DS hardware accelerator** (private key in eFuse), and publishes to **Google Cloud Pub/Sub** via **HTTPS mTLS** over native Ethernet (EMAC + IP101GRI RMII PHY, PoE powered). The decoupled Rust Backend serves exclusively as a subscriber to the GCP topics.
 
 ### Why Not ESP-Hosted?
 
@@ -78,7 +78,8 @@ edge-telemetry-gateway/
 │
 ├── shared_components/
 │   ├── cobs_crc/                     ← COBS codec + CRC16-CCITT (shared)
-│   └── proto/telemetry.proto         ← Single Source of Truth Protobuf schema
+│   ├── proto/telemetry.proto         ← Single Source of Truth Protobuf schema
+│   └── proto/gateway_health.proto    ← Diagnostics & Degraded Mode Protobuf schema
 ├── docs/adr/                         ← Architecture Decision Records
 └── scripts/flash_companion.sh        ← Flash C6 via H7 debug header
 ```
@@ -142,7 +143,7 @@ All parameters are configurable via `idf.py menuconfig`:
 | [001](docs/adr/001-bypass-esp-hosted.md) | Bypass ESP-Hosted — C6 as dedicated ESP-NOW proxy | Accepted |
 | [002](docs/adr/002-uart-ipc-over-sdio-traces.md) | UART IPC over internal SDIO D0/D1 traces with COBS | Accepted |
 | 003 | Unified Single Source of Truth Protobuf Schema | Accepted |
-| 004 | Direct HTTPS mTLS to Rust Backend (No Pub/Sub) | Accepted |
+| 004 | Direct HTTPS mTLS to Google Cloud Pub/Sub (Rust Backend Decoupled) | Accepted |
 | 005 | MicroSD SDMMC VFS (Spooler + ESP-DL) & Degraded Mode | Accepted |
 
 ## License

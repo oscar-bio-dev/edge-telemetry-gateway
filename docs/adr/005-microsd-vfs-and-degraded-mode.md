@@ -6,7 +6,7 @@ The Edge Telemetry Gateway requires persistent storage for two distinct use case
 1. **Emergency Spooling (Store-and-Forward):** In the event of a network partition or HTTPS mTLS failure with the backend, telemetry data must be buffered offline without risk of data loss.
 2. **Edge AI (ESP-DL):** The Gateway will execute local ML models (e.g., anomaly detection). This requires storing Neural Network weights (`.tflite` / `.espdl`) and a rolling window of historical telemetry data to feed the inference engine upon reboot.
 
-Initially, the ESP32-P4's internal Flash memory (using SPIFFS or NVS) was considered. However, the high write cycles caused by continuous telemetry spooling and historical logging would lead to rapid **wear-out**, permanently damaging the SoC's storage. 
+Initially, the ESP32-P4's internal Flash memory (using SPIFFS or NVS) was considered. However, the high write cycles caused by continuous telemetry spooling and historical logging would lead to rapid **wear-out**, permanently damaging the SoC's storage.
 
 ## Decision
 

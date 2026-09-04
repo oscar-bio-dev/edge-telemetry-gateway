@@ -4,6 +4,8 @@
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
+- **All commit messages MUST be written in English.**
+
 ```
 feat: add JWT ES256 signing with ECDSA_DS HW accelerator
 fix: resolve CRC16 endianness on little-endian RISC-V

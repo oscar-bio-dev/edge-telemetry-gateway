@@ -20,9 +20,6 @@ dependencies.lock
 companion/managed_components/
 companion/dependencies.lock
 
-# ── Nanopb Generated (rebuild from .proto) ──────────────────────────────────
-components/telemetry_decoder/generated/*.pb.c
-components/telemetry_decoder/generated/*.pb.h
 
 # ── IDE / Editor ────────────────────────────────────────────────────────────
 .vscode/

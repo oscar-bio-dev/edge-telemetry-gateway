@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Companion ESP-NOW Receiver (C6)**: Implemented Wi-Fi STA mode initialization and ESP-NOW RX callback for capturing sensor broadcasts.
 - **Companion IPC Sender (C6)**: Implemented COBS encoding, CRC16 hashing, and UART TX to forward ESP-NOW payloads to the Host.
 - **Host IPC Ingestion (P4)**: Implemented Core 1 pinned FreeRTOS task with real-time DMA UART reads, COBS zero-allocation decoding, and CRC verification.
-- **Direct mTLS Cloud Routing**: Replaced Google Cloud Pub/Sub architecture with direct HTTPS mTLS routing to the Rust backend to prevent schema drift and eliminate intermediate infrastructure.
+- **Direct mTLS to GCP**: Re-architected Cloud Transport to publish directly to Google Cloud Pub/Sub via HTTPS mTLS (Rust Backend acts only as a subscriber).
+- **Phase 2 (Telemetry Decoder & RAM Buffer)**: Implemented `telemetry_decoder` with static Nanopb deserialization and `telemetry_buffer` as a RAM-backed FreeRTOS queue.
+- **Phase 3 Planning (MicroSD & Diagnostics)**: Added `gateway_health.proto` schema, Kconfig variables for LDO/PubSub, and architectural documentation for the MicroSD SDMMC VFS (`DEGRADED_MODE` and Edge AI).
 - **Dynamic Identity Injection**: Gateway now injects `device_id` based on MAC address, relieving the sensor nodes from broadcasting their IDs over ESP-NOW.
 - **Strict Governance**: Enforced Capa 2 GitHub Standard (Rulesets, strict checks, codeowners, and dependabot policies) across the workspace.
 - Initial Project Scaffolding & Host-Companion Architecture definition.

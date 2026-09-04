@@ -7,6 +7,3 @@
 #endif
 
 PB_BIND(diagnostics_GatewayHealthEvent, diagnostics_GatewayHealthEvent, AUTO)
-
-
-
