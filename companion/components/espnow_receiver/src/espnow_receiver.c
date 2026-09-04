@@ -5,12 +5,12 @@
 
 #include "espnow_receiver.h"
 #include "esp_log.h"
-#include "esp_wifi.h"
-#include "esp_now.h"
 #include "esp_mac.h"
+#include "esp_now.h"
+#include "esp_wifi.h"
+#include "ipc_sender.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
-#include "ipc_sender.h"
 
 #define ESPNOW_WIFI_CHANNEL CONFIG_ESPNOW_CHANNEL
 
@@ -22,13 +22,13 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t *
         ESP_LOGW(TAG, "Receive callback with invalid parameters");
         return;
     }
-    
+
     // In ESP-IDF v5+, rssi is available in rx_ctrl inside recv_info
     int8_t rssi = 0;
     if (recv_info->rx_ctrl) {
         rssi = recv_info->rx_ctrl->rssi;
     }
-    
+
     // Forward the ESP-NOW payload directly to the P4 Host via UART/COBS
     // We treat the payload as raw Protobuf (IPC_MSG_TELEMETRY).
     esp_err_t err = ipc_sender_send_frame(IPC_MSG_TELEMETRY, recv_info->src_addr, rssi, data, len);
@@ -45,10 +45,10 @@ static esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    
+
     // Set channel to match sensor nodes
     ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
-    
+
     ESP_ERROR_CHECK(esp_wifi_start());
     return ESP_OK;
 }
@@ -70,7 +70,7 @@ esp_err_t espnow_receiver_init(void)
         ESP_LOGE(TAG, "Error initializing ESP-NOW");
         return ESP_FAIL;
     }
-    
+
     // Register receive callback
     esp_now_register_recv_cb(espnow_recv_cb);
 

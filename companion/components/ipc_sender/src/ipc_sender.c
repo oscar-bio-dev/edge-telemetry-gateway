@@ -4,19 +4,19 @@
  */
 
 #include "ipc_sender.h"
-#include "esp_log.h"
-#include "driver/uart.h"
-#include "driver/gpio.h"
+#include <string.h>
 #include "cobs.h"
 #include "crc16.h"
+#include "driver/gpio.h"
+#include "driver/uart.h"
+#include "esp_log.h"
 #include "sdkconfig.h"
-#include <string.h>
 
-#define UART_PORT_NUM      UART_NUM_1
-#define UART_BAUD_RATE     CONFIG_IPC_UART_BAUD_RATE
-#define UART_TX_PIN        CONFIG_IPC_UART_TX_GPIO
-#define UART_RX_PIN        CONFIG_IPC_UART_RX_GPIO
-#define UART_BUF_SIZE      1024
+#define UART_PORT_NUM  UART_NUM_1
+#define UART_BAUD_RATE CONFIG_IPC_UART_BAUD_RATE
+#define UART_TX_PIN    CONFIG_IPC_UART_TX_GPIO
+#define UART_RX_PIN    CONFIG_IPC_UART_RX_GPIO
+#define UART_BUF_SIZE  1024
 
 static const char *TAG = "ipc_sender";
 static uint16_t global_seq_num = 0;
@@ -26,22 +26,27 @@ esp_err_t ipc_sender_init(void)
     uart_config_t uart_config = {
         .baud_rate = UART_BAUD_RATE,
         .data_bits = UART_DATA_8_BITS,
-        .parity    = UART_PARITY_DISABLE,
+        .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT,
     };
 
     esp_err_t err = uart_param_config(UART_PORT_NUM, &uart_config);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK)
+        return err;
 
-    err = uart_set_pin(UART_PORT_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    if (err != ESP_OK) return err;
+    err = uart_set_pin(UART_PORT_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE,
+                       UART_PIN_NO_CHANGE);
+    if (err != ESP_OK)
+        return err;
 
     err = uart_driver_install(UART_PORT_NUM, UART_BUF_SIZE, UART_BUF_SIZE, 0, NULL, 0);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK)
+        return err;
 
-    ESP_LOGI(TAG, "UART IPC Sender Initialized on TX:%d RX:%d @ %d bps", UART_TX_PIN, UART_RX_PIN, UART_BAUD_RATE);
+    ESP_LOGI(TAG, "UART IPC Sender Initialized on TX:%d RX:%d @ %d bps", UART_TX_PIN, UART_RX_PIN,
+             UART_BAUD_RATE);
     return ESP_OK;
 }
 
@@ -55,7 +60,7 @@ esp_err_t ipc_sender_send_frame(ipc_msg_type_t type, const uint8_t *src_mac, int
 
     uint8_t raw_frame[IPC_RAW_FRAME_MAX_SIZE];
     ipc_header_t *header = (ipc_header_t *)raw_frame;
-    
+
     header->type = type;
     if (src_mac) {
         memcpy(header->src_mac, src_mac, 6);
@@ -79,18 +84,18 @@ esp_err_t ipc_sender_send_frame(ipc_msg_type_t type, const uint8_t *src_mac, int
 
     // Encode with COBS
     uint8_t encoded_frame[IPC_ENCODED_FRAME_MAX_SIZE];
-    encoded_frame[0] = 0x00; // Leading delimiter
-    
+    encoded_frame[0] = 0x00;  // Leading delimiter
+
     size_t encoded_len = cobs_encode(raw_frame, raw_len, &encoded_frame[1]);
     if (encoded_len == 0) {
         ESP_LOGE(TAG, "COBS encoding failed");
         return ESP_FAIL;
     }
 
-    encoded_frame[1 + encoded_len] = 0x00; // Trailing delimiter
-    
+    encoded_frame[1 + encoded_len] = 0x00;  // Trailing delimiter
+
     size_t total_tx_len = 2 + encoded_len;
-    
+
     // Send over UART
     int tx_bytes = uart_write_bytes(UART_PORT_NUM, encoded_frame, total_tx_len);
     if (tx_bytes != total_tx_len) {
@@ -98,7 +103,8 @@ esp_err_t ipc_sender_send_frame(ipc_msg_type_t type, const uint8_t *src_mac, int
         return ESP_FAIL;
     }
 
-    // Wait until TX is done to ensure the payload is actually out (optional, but good for stability if bursts are rare)
+    // Wait until TX is done to ensure the payload is actually out (optional, but good for stability
+    // if bursts are rare)
     uart_wait_tx_done(UART_PORT_NUM, pdMS_TO_TICKS(50));
 
     return ESP_OK;

@@ -7,10 +7,10 @@ package telemetry;
 message TelemetryPayload {
     // Identity & Meta (Inyectado por P4 Gateway antes de subir a la nube)
     string device_id = 1;         // string format "sensor-XX:XX:XX:XX:XX:XX"
-    
+
     // Timestamp (Inyectado por Nodo o Gateway)
     uint64 timestamp_ms = 2;      // UTC Epoch en ms
-    
+
     // Ambiental y Calidad de Aire (BME688 / SCD41)
     optional float temperature = 3;      // Celsius
     optional float humidity = 4;         // % RH
