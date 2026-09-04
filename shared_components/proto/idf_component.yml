@@ -1,2 +1,2 @@
 dependencies:
-  espressif/nanopb: "^0.4.8"
+  nanopb/nanopb: "*"
