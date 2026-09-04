@@ -21,17 +21,19 @@
                           ┌─ Shield: Waveshare ESP32-P4-WIFI6-POE-ETH ──────────────┐
                           │                                                          │
   Sensor Nodes            │  ESP32-C6 Companion        ESP32-P4 Host                │
-  (room-monitoring)       │  ┌──────────────────┐      ┌──────────────────────────┐  │
-  ┌──────────────┐        │  │                  │ UART │                          │  │  PoE
-  │ BME688       │ ESP-NOW│  │  Wi-Fi STA       │460Kbps                         │  │  Ethernet
-  │ SCD41        │────────┼─►│  ESP-NOW RX  ────┼──────►  COBS decode            │  │  HTTPS mTLS
-  │ BMV080       │ burst  │  │  COBS encode     │ D0/D1│  Nanopb Protobuf decode │──┼──────► Rust
-  │ Protobuf     │  (ms)  │  │  CRC16 verify    │      │  JWT/ES256 (ECDSA_DS HW)│  │        Backend
-  │ Deep Sleep   │        │  │                  │      │  HTTPS → Backend        │  │
-  └──────────────┘        │  └──────────────────┘      └──────────────────────────┘  │
-                          │       ▲ GPIO20/21               │ EMAC + IP101GRI       │
-                          │       │ (SDIO D0/D1 traces)     │ RMII 100Mbit/s        │
-                          │       └─────────────────────────┘                        │
+  (room-monitoring)       │  ┌──────────────────┐      ┌──────────────────────────┐  │  PoE
+  ┌──────────────┐        │  │                  │ UART │                          │  │  Ethernet
+  │ BME688       │ ESP-NOW│  │  Wi-Fi STA       │460Kbps                          │  │  HTTPS mTLS
+  │ SCD41        │────────┼─►│  ESP-NOW RX  ────┼──────►  COBS / Nanopb decode   │──┼──────► Rust
+  │ BMV080       │ burst  │  │  COBS encode     │ D0/D1│  JWT/ES256 (ECDSA_DS)   │  │        Backend
+  │ Protobuf     │  (ms)  │  │  CRC16 verify    │      │                          │  │
+  │ Deep Sleep   │        │  │                  │      └──┬───────────────────────┘  │
+  └──────────────┘        │  └──────────────────┘         │ SDMMC (4-bit)            │
+                          │       ▲ GPIO20/21             ▼                          │
+                          │       │ (SDIO D0/D1)       ┌─────────────────┐           │
+                          │       └────────────────────┤ MicroSD (VFS)   │           │
+                          │                            │ Spooler & ESP-DL│           │
+                          │                            └─────────────────┘           │
                           └──────────────────────────────────────────────────────────┘
 ```
 
@@ -128,9 +130,10 @@ All parameters are configurable via `idf.py menuconfig`:
 | ESP-NOW receiver (C6) | ✅ Implemented | Wi-Fi STA + broadcast RX + MAC extraction |
 | Ethernet manager | 🔲 Stub | EMAC + IP101GRI + lwIP pending |
 | Cloud transport | 🔲 Stub | JWT/ECDSA + HTTPS mTLS REST pending |
-| Telemetry buffer | 🔲 Stub | PSRAM ring buffer pending |
+| Storage & Spooler | 🔲 Stub | MicroSD (SDMMC VFS) for Store-and-Forward |
+| Edge AI (ESP-DL) | 🔲 Stub | Neural Network inference on historical telemetry |
 | Host-Driven OTA | 🔲 Stub | esp-serial-flasher integration pending |
-| Diagnostics | 🔲 Stub | Watchdog + health checks pending |
+| Diagnostics | 🔲 Stub | Watchdog + Degraded Mode health checks pending |
 
 ## Architecture Decisions
 
@@ -140,6 +143,7 @@ All parameters are configurable via `idf.py menuconfig`:
 | [002](docs/adr/002-uart-ipc-over-sdio-traces.md) | UART IPC over internal SDIO D0/D1 traces with COBS | Accepted |
 | 003 | Unified Single Source of Truth Protobuf Schema | Accepted |
 | 004 | Direct HTTPS mTLS to Rust Backend (No Pub/Sub) | Accepted |
+| 005 | MicroSD SDMMC VFS (Spooler + ESP-DL) & Degraded Mode | Accepted |
 
 ## License
 
