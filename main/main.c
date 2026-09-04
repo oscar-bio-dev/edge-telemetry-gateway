@@ -24,6 +24,7 @@
 #include "diagnostics.h"
 #include "eth_manager.h"
 #include "ipc_transport.h"
+#include "storage_manager.h"
 #include "telemetry_buffer.h"
 #include "telemetry_decoder.h"
 
@@ -42,7 +43,12 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    /* ── Phase 1: Telemetry Buffer & Decoder (must be ready before producers) ── */
+    /* ── Phase 1: Storage & VFS (MicroSD) ─────────────────── */
+    if (storage_manager_init() != ESP_OK) {
+        ESP_LOGW(TAG, "Storage Manager running in DEGRADED MODE (RAM only).");
+    }
+
+    /* ── Phase 2: Telemetry Buffer & Decoder ──────────────── */
     ESP_ERROR_CHECK(telemetry_buffer_init());
     ESP_ERROR_CHECK(telemetry_decoder_init());
     ESP_LOGI(TAG, "Telemetry buffer initialized (depth=%d)", CONFIG_TELEMETRY_QUEUE_SIZE);

@@ -10,4 +10,5 @@ idf_component_register(
         eth_manager
         companion_ota
         diagnostics
+        storage_manager
 )
