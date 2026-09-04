@@ -130,8 +130,8 @@ All parameters are configurable via `idf.py menuconfig`:
 | IPC transport (UART) | ✅ Implemented | Core 1 ingest task, COBS TX/RX |
 | ESP-NOW receiver (C6) | ✅ Implemented | Wi-Fi STA + broadcast RX + MAC extraction |
 | Ethernet manager | 🔲 Stub | EMAC + IP101GRI + lwIP pending |
-| Cloud transport | 🔲 Stub | JWT/ECDSA + HTTPS mTLS REST pending |
-| Storage & Spooler | 🔲 Stub | MicroSD (SDMMC VFS) for Store-and-Forward |
+| Cloud transport | ✅ Implemented | HTTPS mTLS to GCP Pub/Sub + JWT/ECDSA Auth |
+| Storage & Spooler | ✅ Implemented | MicroSD (SDMMC VFS) Store-and-Forward |
 | Edge AI (ESP-DL) | 🔲 Stub | Neural Network inference on historical telemetry |
 | Host-Driven OTA | 🔲 Stub | esp-serial-flasher integration pending |
 | Diagnostics | 🔲 Stub | Watchdog + Degraded Mode health checks pending |
@@ -145,6 +145,12 @@ All parameters are configurable via `idf.py menuconfig`:
 | 003 | Unified Single Source of Truth Protobuf Schema | Accepted |
 | 004 | Direct HTTPS mTLS to Google Cloud Pub/Sub (Rust Backend Decoupled) | Accepted |
 | 005 | MicroSD SDMMC VFS (Spooler + ESP-DL) & Degraded Mode | Accepted |
+
+## Security & Crypto
+
+The Gateway utilizes a hybrid hardware/software ECDSA mechanism. The P4's hardware `ECDSA_DS` peripheral is used to sign JWTs utilizing an eFuse-burned private key.
+
+For development and CI environments, a software fallback is provided via a dummy key (`dev_private_key.pem.dummy`). CMake automatically copies and embeds this key into the `cloud_transport` component if the real `.pem` is missing, ensuring CI pipelines do not break while preserving strict `.gitignore` rules for actual key material.
 
 ## License
 

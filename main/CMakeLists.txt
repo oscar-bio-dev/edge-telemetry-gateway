@@ -13,4 +13,3 @@ idf_component_register(
         storage_manager
         offline_spooler
 )
-

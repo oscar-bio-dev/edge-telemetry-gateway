@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Companion IPC Sender (C6)**: Implemented COBS encoding, CRC16 hashing, and UART TX to forward ESP-NOW payloads to the Host.
 - **Host IPC Ingestion (P4)**: Implemented Core 1 pinned FreeRTOS task with real-time DMA UART reads, COBS zero-allocation decoding, and CRC verification.
 - **Direct mTLS to GCP**: Re-architected Cloud Transport to publish directly to Google Cloud Pub/Sub via HTTPS mTLS (Rust Backend acts only as a subscriber).
-- **Phase 2 (Telemetry Decoder & RAM Buffer)**: Implemented `telemetry_decoder` with static Nanopb deserialization and `telemetry_buffer` as a RAM-backed FreeRTOS queue.
-- **Phase 3 Planning (MicroSD & Diagnostics)**: Added `gateway_health.proto` schema, Kconfig variables for LDO/PubSub, and architectural documentation for the MicroSD SDMMC VFS (`DEGRADED_MODE` and Edge AI).
+- **Phase 3 (MicroSD SDMMC VFS)**: Fully implemented `storage_manager` to mount FATFS on the Waveshare board's MicroSD slot, complete with hardware PMU LDO configuration.
+- **Phase 4 (Security)**: Added `Gateway Security & Crypto` Kconfig and implemented a hybrid hardware/software ECDSA mechanism. Uses `ECDSA_DS` in production and a `dev_private_key.pem.dummy` fallback in CI/development.
+- **Phase 5 (Offline Spooler)**: Implemented Store-and-Forward architecture via `offline_spooler`. If GCP connection fails, messages are appended to a binary file (`0xEDCE` framing + `CRC16-CCITT`) on the MicroSD.
 - **Dynamic Identity Injection**: Gateway now injects `device_id` based on MAC address, relieving the sensor nodes from broadcasting their IDs over ESP-NOW.
 - **Strict Governance**: Enforced Capa 2 GitHub Standard (Rulesets, strict checks, codeowners, and dependabot policies) across the workspace.
 - Initial Project Scaffolding & Host-Companion Architecture definition.
