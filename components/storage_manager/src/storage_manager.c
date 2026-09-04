@@ -27,12 +27,7 @@ static esp_err_t init_ldo_power(void)
 {
     ESP_LOGI(TAG, "Initializing PMU LDO channel %d for MicroSD power...",
              CONFIG_SDCARD_LDO_CHANNEL);
-    esp_ldo_channel_config_t ldo_cfg = {.chan_id = CONFIG_SDCARD_LDO_CHANNEL,
-                                        .voltage_mv = 3300,
-                                        .voltage_stable_delay_us = 10000,
-                                        .flags = {
-                                            .adjustable = 0,
-                                        }};
+    esp_ldo_channel_config_t ldo_cfg = {.chan_id = CONFIG_SDCARD_LDO_CHANNEL, .voltage_mv = 3300};
 
     esp_err_t ret = esp_ldo_acquire_channel(&ldo_cfg, &s_sd_ldo_handle);
     if (ret != ESP_OK) {

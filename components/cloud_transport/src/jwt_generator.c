@@ -35,9 +35,10 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     // Mocking the Unsigned JWT Base64 for the skeleton
     char unsigned_jwt[256];
     snprintf(unsigned_jwt, sizeof(unsigned_jwt),
-             "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9."
-             "eyJpYXQiOiVsbGQsImV4cCI6JWxsZCwiYXVkIjoiJXNifQ",
-             (long long)now, (long long)exp, project_id);
+             "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.MOCK_PAYLOAD");
+    (void)now;
+    (void)exp;
+    (void)project_id;
 
     unsigned char hash[32];
     mbedtls_sha256_context sha_ctx;
@@ -49,6 +50,8 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
 
     unsigned char signature[64] = {0};  // r and s are 32 bytes each for P-256
     size_t sig_len = 0;
+    (void)signature;
+    (void)sig_len;
 
 #ifdef CONFIG_HW_ECDSA_ENABLE
     ESP_LOGI(TAG, "Signing JWT using Hardware ECDSA_DS peripheral (eFuse key)...");
