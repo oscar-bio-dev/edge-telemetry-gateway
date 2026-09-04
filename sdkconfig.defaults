@@ -21,4 +21,9 @@ CONFIG_MBEDTLS_HARDWARE_SHA=y
 CONFIG_MBEDTLS_HARDWARE_ECC=y
 CONFIG_MBEDTLS_HARDWARE_MPI=y
 
+CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN=y
+
+# Session Tickets for faster TLS resumption
+CONFIG_ESP_TLS_CLIENT_SESSION_TICKETS=y
+
 # Partition table (use default single-factory for now)

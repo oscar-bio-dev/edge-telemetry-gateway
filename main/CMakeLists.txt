@@ -12,3 +12,7 @@ idf_component_register(
         diagnostics
         storage_manager
 )
+
+if(NOT CONFIG_HW_ECDSA_ENABLE)
+    target_add_binary_data(${COMPONENT_LIB} "dev_private_key.pem" TEXT)
+endif()

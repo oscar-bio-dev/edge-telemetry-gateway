@@ -116,4 +116,18 @@ menu "Edge Telemetry Gateway Configuration"
             If no heartbeat is received from the C6 companion within
             this timeout, the watchdog triggers a recovery action.
 
+    menu "SetaeSense Security & Crypto"
+
+        config HW_ECDSA_ENABLE
+            bool "Enable Hardware ECDSA_DS (Requires eFuse)"
+            default n
+            help
+                If enabled, JWT signing will use the ESP32-P4 ECDSA_DS
+                peripheral, which expects the private key to be burnt
+                in an eFuse block.
+                If disabled, a software fallback (mbedTLS) is used
+                with a development key (dev_private_key.pem).
+
+    endmenu
+
 endmenu
