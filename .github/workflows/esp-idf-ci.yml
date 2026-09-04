@@ -53,7 +53,9 @@ jobs:
           done < <(find . -name '*.c' -o -name '*.h' \
                    | grep -v '/build/' \
                    | grep -v '/managed_components/' \
-                   | grep -v '/generated/')
+                   | grep -v '/generated/' \
+                   | grep -v '/nanopb/' \
+                   | grep -v '\.pb\.')
           if [ "$FAILED" -eq 1 ]; then
             echo "::error::clang-format check failed. Run 'pre-commit run --all-files' locally."
             exit 1
@@ -73,7 +75,9 @@ jobs:
           done < <(find . \( -name '*.c' -o -name '*.h' \) \
                    | grep -v '/build/' \
                    | grep -v '/managed_components/' \
-                   | grep -v '/generated/')
+                   | grep -v '/generated/' \
+                   | grep -v '/nanopb/' \
+                   | grep -v '\.pb\.')
           if [ "$MISSING" -eq 1 ]; then
             echo "::warning::Some files are missing SPDX license headers."
           fi
