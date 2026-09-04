@@ -24,6 +24,7 @@
 #include "diagnostics.h"
 #include "eth_manager.h"
 #include "ipc_transport.h"
+#include "offline_spooler.h"
 #include "storage_manager.h"
 #include "telemetry_buffer.h"
 #include "telemetry_decoder.h"
@@ -46,6 +47,8 @@ void app_main(void)
     /* ── Phase 1: Storage & VFS (MicroSD) ─────────────────── */
     if (storage_manager_init() != ESP_OK) {
         ESP_LOGW(TAG, "Storage Manager running in DEGRADED MODE (RAM only).");
+    } else {
+        offline_spooler_init();
     }
 
     /* ── Phase 2: Telemetry Buffer & Decoder ──────────────── */

@@ -11,6 +11,7 @@ idf_component_register(
         companion_ota
         diagnostics
         storage_manager
+        offline_spooler
 )
 
 if(NOT CONFIG_HW_ECDSA_ENABLE)

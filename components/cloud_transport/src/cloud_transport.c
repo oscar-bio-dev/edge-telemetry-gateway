@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "jwt_generator.h"
+#include "offline_spooler.h"
 #include "telemetry_buffer.h"
 
 static const char *TAG = "cloud_transport";
@@ -20,9 +21,12 @@ static const char *TAG = "cloud_transport";
 #define JWT_REFRESH_MINUTES 55
 #define JWT_MAX_TTL_MINUTES 60
 #define BATCH_SIZE          10
+#define MAX_RETRIES         3
 
 static char s_cached_jwt[512];
 static time_t s_jwt_expiry = 0;
+static int s_fail_count = 0;
+static bool s_is_online = true;
 
 static void refresh_jwt_if_needed(void)
 {
@@ -45,33 +49,58 @@ static void gcp_publisher_task(void *arg)
     ESP_LOGI(TAG, "GCP Publisher Task started on Core %d", xPortGetCoreID());
 
     while (1) {
-        // Wait for telemetry samples in the RAM queue
-        // In Phase 2 we defined `telemetry_buffer_pop` or similar.
-        // For the skeleton we simulate popping a batch.
         vTaskDelay(pdMS_TO_TICKS(1000));
 
-        // Ensure JWT is valid before sending
         refresh_jwt_if_needed();
 
-        // Check if there are items
         size_t items_in_queue = 5;  // MOCK
         if (items_in_queue > 0) {
+            if (s_fail_count >= MAX_RETRIES) {
+                if (s_is_online) {
+                    ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
+                    s_is_online = false;
+                }
+
+                // MOCK Payload serialization
+                uint8_t dummy_pb[64] = {0xAA, 0xBB};
+                esp_err_t err = offline_spooler_append(dummy_pb, sizeof(dummy_pb));
+                if (err == ESP_OK) {
+                    ESP_LOGD(TAG, "Spooler append successful.");
+                } else {
+                    ESP_LOGE(TAG, "Spooler append failed! Telemetry lost.");
+                }
+
+                // Simulate periodic network probe to recover
+                s_fail_count++;
+                if (s_fail_count > (MAX_RETRIES + 5)) {
+                    ESP_LOGI(TAG, "Network recovered (simulated).");
+                    s_fail_count = 0;
+                    s_is_online = true;
+                }
+                continue;
+            }
+
             ESP_LOGD(TAG, "Preparing to send batch of telemetry to GCP...");
 
-            // Note: The HTTP client config must bind specifically to the Ethernet interface.
-            // esp_netif_t *eth_netif = esp_netif_get_handle_from_ifkey("ETH_DEF");
-            //
-            // esp_http_client_config_t config = {
-            //     .url = "https://pubsub.googleapis.com/v1/projects/" CONFIG_GCP_PROJECT_ID
-            //     "/topics/" CONFIG_GCP_PUB_SUB_TOPIC ":publish", .transport_type =
-            //     HTTP_TRANSPORT_OVER_SSL, .if_name = eth_netif, // Restrict to native Ethernet
-            // };
-            // esp_http_client_handle_t client = esp_http_client_init(&config);
-            // esp_http_client_set_header(client, "Authorization", "Bearer <s_cached_jwt>");
-            // ... perform POST ...
-            // esp_http_client_cleanup(client);
+            // MOCK HTTP POST
+            bool http_success = false;  // Simulate failure to trigger spooler
 
-            ESP_LOGI(TAG, "Successfully published telemetry batch to Google Cloud Pub/Sub.");
+            if (http_success) {
+                ESP_LOGI(TAG, "Successfully published telemetry batch to Google Cloud.");
+                s_fail_count = 0;
+                s_is_online = true;
+
+                // THROTTLE: Flush 1 batch from Spooler if network is UP
+                uint8_t *spool_buf = NULL;
+                uint16_t popped = 0;
+                if (offline_spooler_pop(&spool_buf, 5, &popped) == ESP_OK) {
+                    ESP_LOGI(TAG, "Flushed %d items from offline spooler.", popped);
+                }
+
+            } else {
+                ESP_LOGE(TAG, "HTTP POST Failed.");
+                s_fail_count++;
+            }
         }
     }
 }

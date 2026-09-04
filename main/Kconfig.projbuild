@@ -116,7 +116,7 @@ menu "Edge Telemetry Gateway Configuration"
             If no heartbeat is received from the C6 companion within
             this timeout, the watchdog triggers a recovery action.
 
-    menu "SetaeSense Security & Crypto"
+    menu "Gateway Security & Crypto"
 
         config HW_ECDSA_ENABLE
             bool "Enable Hardware ECDSA_DS (Requires eFuse)"
