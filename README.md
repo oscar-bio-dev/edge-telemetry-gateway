@@ -124,8 +124,8 @@ All parameters are configurable via `idf.py menuconfig`:
 | Project scaffolding | ✅ Complete | Dual-firmware structure, build system, Kconfig |
 | COBS/CRC16 codec | ✅ Implemented | Zero-allocation, lookup-table CRC16 |
 | IPC frame protocol | ✅ Defined | 8 message types, 10B header, COBS+CRC16 |
-| IPC transport (UART) | 🔲 Stub | Core 1 ingest task pending |
-| ESP-NOW receiver (C6) | 🔲 Stub | Wi-Fi STA + broadcast RX pending |
+| IPC transport (UART) | ✅ Implemented | Core 1 ingest task, COBS TX/RX |
+| ESP-NOW receiver (C6) | ✅ Implemented | Wi-Fi STA + broadcast RX + MAC extraction |
 | Ethernet manager | 🔲 Stub | EMAC + IP101GRI + lwIP pending |
 | Cloud transport | 🔲 Stub | JWT/ECDSA + HTTPS mTLS REST pending |
 | Telemetry buffer | 🔲 Stub | PSRAM ring buffer pending |
