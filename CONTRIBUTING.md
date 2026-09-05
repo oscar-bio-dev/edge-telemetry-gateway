@@ -40,5 +40,9 @@ To maintain a green pipeline, all contributors MUST adhere to the following rule
    - **Rule:** `#include <header.h>` is not enough. If your component uses types from `esp_netif` or `telemetry_buffer`, you MUST declare them in the `PRIV_REQUIRES` array of your component's `CMakeLists.txt`.
 5. **Zero-Tolerance Warnings (`-Werror`):**
    - **Rule:** CI treats all warnings as errors. Unused variables in `#ifndef` blocks or mock paths MUST be cast to void (e.g., `(void)var;`). Do not assume older ESP-IDF struct members (like `voltage_stable_delay_us`) exist in v5.4 without checking the official API.
+6. **Kconfig Targets (`set-target`):**
+   - **Rule:** If you delete the `sdkconfig` file to regenerate it, you MUST explicitly run `idf.py set-target esp32p4` before building. Otherwise, CMake defaults to the `esp32` (Xtensa) target, which will aggressively corrupt your RISC-V build and cause linker failures due to missing peripherals.
+7. **Silicon Revision Workarounds (v1.3 vs v3.1):**
+   - **Rule:** ESP-IDF v6.1 officially defaults to ESP32-P4 v3.1. If you are using ECO1/ECO2 (v1.3) Engineering Samples, you MUST ensure `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` is in your `sdkconfig.defaults`, or the compiler will emit illegal RISC-V extensions, causing the bootloader to panic with an `Illegal instruction` instantly on boot.
 
 > **Note:** For full governance policies, please refer to the Workspace Global Policy (`AGENTS.md`) and the Layer 2 GitHub Standard.

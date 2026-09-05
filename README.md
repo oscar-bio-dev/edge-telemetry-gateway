@@ -129,12 +129,12 @@ All parameters are configurable via `idf.py menuconfig`:
 | IPC frame protocol | ✅ Defined | 8 message types, 10B header, COBS+CRC16 |
 | IPC transport (UART) | ✅ Implemented | Core 1 ingest task, COBS TX/RX |
 | ESP-NOW receiver (C6) | ✅ Implemented | Wi-Fi STA + broadcast RX + MAC extraction |
-| Ethernet manager | 🔲 Stub | EMAC + IP101GRI + lwIP pending |
+| Ethernet manager | ✅ Implemented | EMAC + IP101GRI driver configured |
 | Cloud transport | ✅ Implemented | HTTPS mTLS to GCP Pub/Sub + JWT/ECDSA Auth |
 | Storage & Spooler | ✅ Implemented | MicroSD (SDMMC VFS) Store-and-Forward |
 | Edge AI (ESP-DL) | 🔲 Stub | Neural Network inference on historical telemetry |
 | Host-Driven OTA | 🔲 Stub | esp-serial-flasher integration pending |
-| Diagnostics | 🔲 Stub | Watchdog + Degraded Mode health checks pending |
+| Diagnostics | ✅ Implemented | Watchdog + Degraded Mode health checks (Auto-Spooler Rerouting) |
 
 ## Architecture Decisions
 

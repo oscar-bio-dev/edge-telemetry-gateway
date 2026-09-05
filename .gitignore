@@ -16,9 +16,7 @@ companion/sdkconfig.old
 
 # ── ESP-IDF Component Manager ───────────────────────────────────────────────
 managed_components/
-dependencies.lock
 companion/managed_components/
-companion/dependencies.lock
 
 
 # ── IDE / Editor ────────────────────────────────────────────────────────────

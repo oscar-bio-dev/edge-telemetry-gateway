@@ -1,0 +1,2 @@
+## Inherits shared settings from sdkconfig.defaults
+CONFIG_IDF_TARGET="esp32"

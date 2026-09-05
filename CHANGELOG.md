@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- **ESP-IDF v6.1 Migration**: Successfully migrated to v6.1. Fixed RISC-V Illegal Instruction panics on ESP32-P4 v1.3 (ECO2) silicon by explicitly defining `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` in `sdkconfig.defaults`.
+- **MbedTLS 3 (PSA Crypto)**: Upgraded ECDSA JWT signing to use PSA Crypto APIs (`psa_sign_message`), deprecating legacy `mbedtls_pk_sign` entropy injection.
+- **Resilience Demo**: Validated the Degraded Mode. Cloud Transport successfully detects HTTP POST failures (due to missing SNTP/Certificates) and dynamically reroutes telemetry to the MicroSD Offline Spooler.
 - **Companion ESP-NOW Receiver (C6)**: Implemented Wi-Fi STA mode initialization and ESP-NOW RX callback for capturing sensor broadcasts.
 - **Companion IPC Sender (C6)**: Implemented COBS encoding, CRC16 hashing, and UART TX to forward ESP-NOW payloads to the Host.
 - **Host IPC Ingestion (P4)**: Implemented Core 1 pinned FreeRTOS task with real-time DMA UART reads, COBS zero-allocation decoding, and CRC verification.

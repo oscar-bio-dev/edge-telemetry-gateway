@@ -66,31 +66,35 @@ menu "Edge Telemetry Gateway Configuration"
             P4 GPIO connected to C6 IO2 via R52 (0R).
             Driven LOW during reset to enter C6 download mode for OTA.
 
-    config ETH_PHY_ADDR
-        int "Ethernet PHY Address (IP101GRI)"
-        default 1
-        range 0 31
-        help
-            MDIO address of the IP101GRI Ethernet PHY on the Waveshare board.
+    menu "Gateway Ethernet & PHY (IP101)"
 
-    config ETH_PHY_RST_GPIO
-        int "Ethernet PHY Reset GPIO"
-        default -1
-        range -1 54
-        help
-            GPIO connected to PHY reset pin. Set -1 if not connected.
+        config ETH_PHY_ADDR
+            int "Ethernet PHY Address (IP101GRI)"
+            default 1
+            range 0 31
+            help
+                MDIO address of the IP101GRI Ethernet PHY on the Waveshare board.
 
-    config ETH_MDC_GPIO
-        int "Ethernet MDC GPIO"
-        default 31
-        help
-            GPIO for RMII MDC signal to IP101GRI PHY.
+        config ETH_PHY_RST_GPIO
+            int "Ethernet PHY Reset GPIO (-1 to disable)"
+            default -1
+            range -1 54
+            help
+                GPIO connected to PHY reset pin. Set to -1 if using an external hardware RC delay.
 
-    config ETH_MDIO_GPIO
-        int "Ethernet MDIO GPIO"
-        default 52
-        help
-            GPIO for RMII MDIO signal to IP101GRI PHY.
+        config ETH_MDC_GPIO
+            int "Ethernet MDC GPIO (SMI Clock)"
+            default 31
+            help
+                GPIO for RMII MDC signal to IP101GRI PHY.
+
+        config ETH_MDIO_GPIO
+            int "Ethernet MDIO GPIO (SMI Data)"
+            default 52
+            help
+                GPIO for RMII MDIO signal to IP101GRI PHY.
+
+    endmenu
 
     config TELEMETRY_QUEUE_SIZE
         int "Telemetry Queue Depth (max buffered samples)"
