@@ -44,63 +44,111 @@ static void refresh_jwt_if_needed(void)
     }
 }
 
+#include "telemetry.pb.h"
+#include "pb_encode.h"
+#include "mbedtls/base64.h"
+#include "esp_mac.h"
+#include "esp_random.h"
+
+// GCP Emulator Endpoint (Host IP)
+#define EMULATOR_ENDPOINT "http://192.168.0.32:8085/v1/projects/setaesense-iot-core/topics/room-telemetry-topic:publish"
+
+static void generate_uuid_v4(char *out) {
+    uint8_t rnd[16];
+    esp_fill_random(rnd, sizeof(rnd));
+    rnd[6] = (rnd[6] & 0x0f) | 0x40; // Version 4
+    rnd[8] = (rnd[8] & 0x3f) | 0x80; // Variant 1
+    sprintf(out,
+            "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+            rnd[0], rnd[1], rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7],
+            rnd[8], rnd[9], rnd[10], rnd[11], rnd[12], rnd[13], rnd[14], rnd[15]);
+}
+
 static void gcp_publisher_task(void *arg)
 {
     ESP_LOGI(TAG, "GCP Publisher Task started on Core %d", xPortGetCoreID());
 
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_ETH);
+    char gateway_id[18];
+    sprintf(gateway_id, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Publish every 5 seconds for testing
 
-        refresh_jwt_if_needed();
+        // Create Payload
+        telemetry_TelemetryPayload payload = telemetry_TelemetryPayload_init_zero;
+        
+        payload.protocol_version = 1;
+        payload.schema_version = 21;
+        
+        char event_id[37];
+        generate_uuid_v4(event_id);
+        strncpy(payload.event_id, event_id, sizeof(payload.event_id));
+        strncpy(payload.gateway_id, gateway_id, sizeof(payload.gateway_id));
+        strncpy(payload.device_id, "AA:BB:CC:DD:EE:FF", sizeof(payload.device_id));
+        payload.node_sequence = 1234;
+        
+        payload.measured_at_ms = 1700000000000;
+        payload.ingested_at_ms = 1700000000100;
+        
+        payload.has_temperature = true; payload.temperature = 24.5f;
+        payload.has_humidity = true;    payload.humidity = 45.2f;
+        payload.has_pressure = true;    payload.pressure = 1013.2f;
+        payload.has_co2 = true;         payload.co2 = 450;
+        
+        uint8_t pb_buffer[256];
+        pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
+        if (!pb_encode(&stream, telemetry_TelemetryPayload_fields, &payload)) {
+            ESP_LOGE(TAG, "Protobuf encoding failed: %s", PB_GET_ERROR(&stream));
+            continue;
+        }
 
-        size_t items_in_queue = 5;  // MOCK
-        if (items_in_queue > 0) {
-            if (s_fail_count >= MAX_RETRIES) {
-                if (s_is_online) {
-                    ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
-                    s_is_online = false;
-                }
+        // Base64 encode
+        unsigned char base64_buf[512];
+        size_t olen = 0;
+        mbedtls_base64_encode(base64_buf, sizeof(base64_buf), &olen, pb_buffer, stream.bytes_written);
+        base64_buf[olen] = '\0';
 
-                // MOCK Payload serialization
-                uint8_t dummy_pb[64] = {0xAA, 0xBB};
-                esp_err_t err = offline_spooler_append(dummy_pb, sizeof(dummy_pb));
-                if (err == ESP_OK) {
-                    ESP_LOGD(TAG, "Spooler append successful.");
-                } else {
-                    ESP_LOGE(TAG, "Spooler append failed! Telemetry lost.");
-                }
+        // Create JSON body
+        char json_payload[1024];
+        snprintf(json_payload, sizeof(json_payload),
+                 "{\"messages\":[{\"data\":\"%s\"}]}", base64_buf);
 
-                // Simulate periodic network probe to recover
-                s_fail_count++;
-                if (s_fail_count > (MAX_RETRIES + 5)) {
-                    ESP_LOGI(TAG, "Network recovered (simulated).");
-                    s_fail_count = 0;
-                    s_is_online = true;
-                }
-                continue;
-            }
+        // HTTP POST to Emulator
+        esp_http_client_config_t config = {
+            .url = EMULATOR_ENDPOINT,
+            .method = HTTP_METHOD_POST,
+            .timeout_ms = 3000,
+        };
+        esp_http_client_handle_t client = esp_http_client_init(&config);
+        esp_http_client_set_header(client, "Content-Type", "application/json");
+        esp_http_client_set_post_field(client, json_payload, strlen(json_payload));
 
-            ESP_LOGD(TAG, "Preparing to send batch of telemetry to GCP...");
-
-            // MOCK HTTP POST
-            bool http_success = false;  // Simulate failure to trigger spooler
-
-            if (http_success) {
-                ESP_LOGI(TAG, "Successfully published telemetry batch to Google Cloud.");
+        esp_err_t err = esp_http_client_perform(client);
+        if (err == ESP_OK) {
+            int status = esp_http_client_get_status_code(client);
+            if (status == 200) {
+                ESP_LOGI(TAG, "Successfully published synthetic payload (v21) to Pub/Sub Emulator! (Status 200)");
                 s_fail_count = 0;
                 s_is_online = true;
-
-                // THROTTLE: Flush 1 batch from Spooler if network is UP
-                uint8_t *spool_buf = NULL;
-                uint16_t popped = 0;
-                if (offline_spooler_pop(&spool_buf, 5, &popped) == ESP_OK) {
-                    ESP_LOGI(TAG, "Flushed %d items from offline spooler.", popped);
-                }
-
             } else {
-                ESP_LOGE(TAG, "HTTP POST Failed.");
+                ESP_LOGE(TAG, "Emulator rejected payload. Status: %d", status);
                 s_fail_count++;
             }
+        } else {
+            ESP_LOGE(TAG, "HTTP POST Failed to reach Emulator: %s", esp_err_to_name(err));
+            s_fail_count++;
+        }
+        
+        esp_http_client_cleanup(client);
+        
+        if (s_fail_count >= MAX_RETRIES) {
+            if (s_is_online) {
+                ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
+                s_is_online = false;
+            }
+            offline_spooler_append(pb_buffer, stream.bytes_written);
         }
     }
 }

@@ -4,6 +4,7 @@ package diagnostics;
 
 // Esquema de salud y estado del Gateway (ESP32-P4)
 // Publicado de forma independiente a la telemetría de los nodos.
+// Alineado con: edge-telemetry-gateway/shared_components/proto/gateway_health.proto
 message GatewayHealthEvent {
     // Identity
     string gateway_id = 1;        // MAC del ESP32-P4 (ej. "gateway-AA:BB:CC:DD:EE:FF")

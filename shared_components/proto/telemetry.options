@@ -1,1 +1,3 @@
 telemetry.TelemetryPayload.device_id max_size:32
+telemetry.TelemetryPayload.event_id max_size:40
+telemetry.TelemetryPayload.gateway_id max_size:32

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- **Phase 2 (Hello World)**: Successfully achieved End-to-End communication with the local GCP Pub/Sub Emulator. Implemented dynamic `gateway_id` and synthetic UUIDv4 `event_id` generation in `cloud_transport.c`.
+- **Protobuf Mega-Schema v21**: Synchronized `telemetry.proto` and `gateway_health.proto` with the backend's v21 schema. Configured Nanopb static memory allocation for dynamic strings to prevent heap panics.
 - **ESP-IDF v6.1 Migration**: Successfully migrated to v6.1. Fixed RISC-V Illegal Instruction panics on ESP32-P4 v1.3 (ECO2) silicon by explicitly defining `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` in `sdkconfig.defaults`.
 - **MbedTLS 3 (PSA Crypto)**: Upgraded ECDSA JWT signing to use PSA Crypto APIs (`psa_sign_message`), deprecating legacy `mbedtls_pk_sign` entropy injection.
 - **Resilience Demo**: Validated the Degraded Mode. Cloud Transport successfully detects HTTP POST failures (due to missing SNTP/Certificates) and dynamically reroutes telemetry to the MicroSD Offline Spooler.

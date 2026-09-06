@@ -44,5 +44,7 @@ To maintain a green pipeline, all contributors MUST adhere to the following rule
    - **Rule:** If you delete the `sdkconfig` file to regenerate it, you MUST explicitly run `idf.py set-target esp32p4` before building. Otherwise, CMake defaults to the `esp32` (Xtensa) target, which will aggressively corrupt your RISC-V build and cause linker failures due to missing peripherals.
 7. **Silicon Revision Workarounds (v1.3 vs v3.1):**
    - **Rule:** ESP-IDF v6.1 officially defaults to ESP32-P4 v3.1. If you are using ECO1/ECO2 (v1.3) Engineering Samples, you MUST ensure `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` is in your `sdkconfig.defaults`, or the compiler will emit illegal RISC-V extensions, causing the bootloader to panic with an `Illegal instruction` instantly on boot.
+8. **Nanopb Dynamic Strings (`pb_callback_t` Panics):**
+   - **Rule:** By default, Nanopb compiles `string` fields as callbacks (`pb_callback_t`). If you try to assign them directly (e.g. `strncpy`), you will corrupt memory and crash. You MUST define `max_size` constraints in a `.options` file for all strings (e.g., `telemetry.TelemetryPayload.event_id max_size:40`) so that Nanopb allocates static arrays.
 
 > **Note:** For full governance policies, please refer to the Workspace Global Policy (`AGENTS.md`) and the Layer 2 GitHub Standard.
