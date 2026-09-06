@@ -2,7 +2,7 @@ menu "Edge Telemetry Gateway Configuration"
 
     config GCP_PROJECT_ID
         string "Google Cloud Project ID"
-        default "setaesense-iot-core"
+        default "oscar-bio-dev-project"
         help
             The Google Cloud project ID used for Pub/Sub publishing.
             Assembled at runtime into the Pub/Sub REST endpoint:
@@ -10,13 +10,13 @@ menu "Edge Telemetry Gateway Configuration"
 
     config GCP_PUB_SUB_TOPIC
         string "Google Cloud Pub/Sub Topic"
-        default "room-telemetry-topic"
+        default "room-telemetry"
         help
             The Pub/Sub topic name where telemetry data will be published.
 
     config GCP_PUBSUB_ENDPOINT
         string "Google Cloud Pub/Sub Endpoint URL"
-        default "http://192.168.0.32:8085/v1/projects/setaesense-iot-core/topics/room-telemetry-topic:publish"
+        default "http://192.168.0.32:8085/v1/projects/oscar-bio-dev-project/topics/room-telemetry:publish"
         help
             The HTTP/HTTPS endpoint for publishing telemetry.
             Set to the Emulator URL for local lab tests.
