@@ -111,7 +111,7 @@ All parameters are configurable via `idf.py menuconfig`:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `GCP_PUBSUB_ENDPOINT` | `http://192.168.0.32...` | Pub/Sub Endpoint (Production or Emulator) |
+| `GCP_PUBSUB_ENDPOINT` | `http://.../topics/room-telemetry:publish` | Pub/Sub Endpoint (Production or Emulator) |
 | `ENABLE_MOCK_TELEMETRY` | `y` (Lab mode) | Injects dummy data into RAM queue |
 | `IPC_UART_BAUD_RATE` | `460800` | UART speed (Host ↔ Companion) |
 | `ESPNOW_CHANNEL` | `1` | Wi-Fi channel (must match nodes) |
@@ -120,15 +120,16 @@ All parameters are configurable via `idf.py menuconfig`:
 | `CLOUD_PUBLISH_BATCH_SIZE` | `10` | Samples per HTTPS request |
 | `COMPANION_HEARTBEAT_TIMEOUT_MS` | `30000` | C6 watchdog timeout |
 
-## Lab Testing (Test 1)
+## Lab Testing (Test 1 - Validated)
 
 The Gateway features a built-in isolated mock injector to validate the End-to-End architecture (Queue -> JWT -> TLS -> Pub/Sub) without needing physical sensors.
+**Status:** 100% Validated with the Rust backend consuming from the GCP Emulator.
 
-1. Ensure the Rust server's GCP Emulator is running on the local network.
+1. Ensure the Rust server's GCP Emulator is running on the local network (`0.0.0.0:8085`).
 2. Run `idf.py menuconfig`.
 3. Under **Development & Lab Testing**, enable `Enable Mock Telemetry Injector`.
-4. Under **Edge Telemetry Gateway Configuration**, set `Google Cloud Pub/Sub Endpoint URL` to your local emulator IP (e.g. `http://192.168.0.32:8085/...`).
-5. Build and flash. The Gateway will inject dummy Protobufs every 5 seconds.
+4. Under **Edge Telemetry Gateway Configuration**, ensure the `Google Cloud Pub/Sub Endpoint URL` points to your local emulator IP aligning with the backend project and topic (e.g. `http://192.168.0.32:8085/v1/projects/oscar-bio-dev-project/topics/room-telemetry:publish`).
+5. Build and flash. The Gateway will inject dummy Protobufs every 5 seconds, sign JWTs with MbedTLS PSA Crypto, and publish them to the emulator.
 
 > **Warning:** NEVER enable `ENABLE_MOCK_TELEMETRY` in production firmware.
 
