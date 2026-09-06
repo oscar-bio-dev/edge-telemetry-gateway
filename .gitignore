@@ -22,7 +22,7 @@ companion/managed_components/
 # ── IDE / Editor ────────────────────────────────────────────────────────────
 .vscode/
 .idea/
-.agents/
+# NOTE: .agents/ is NOT ignored — governance policies MUST be version-controlled
 *.swp
 *.swo
 *~

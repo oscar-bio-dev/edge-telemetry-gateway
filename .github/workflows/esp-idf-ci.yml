@@ -20,6 +20,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# ── Minimum privilege (Capa 2 §4) ──────────────────────────────────────────
+permissions:
+  contents: read
+
 # ── Global env ──────────────────────────────────────────────────────────────
 env:
   CLANG_FORMAT_BIN: clang-format

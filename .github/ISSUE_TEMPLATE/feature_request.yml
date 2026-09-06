@@ -1,0 +1,74 @@
+name: ✨ Feature Request
+description: Proponer una nueva funcionalidad o mejora
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe la funcionalidad que te gustaría añadir al Gateway.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o Necesidad
+      description: ¿Qué problema resuelve esta funcionalidad?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución Propuesta
+      description: Describe cómo te gustaría que se implementara.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: firmware
+    attributes:
+      label: Firmware Objetivo
+      options:
+        - Host (ESP32-P4)
+        - Companion (ESP32-C6)
+        - Ambos
+        - Infraestructura (CI/CD, docs)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: components
+    attributes:
+      label: Componentes Impactados
+      multiple: true
+      options:
+        - cloud_transport
+        - eth_manager
+        - ipc_transport
+        - storage_manager
+        - telemetry_decoder
+        - telemetry_buffer
+        - offline_spooler
+        - companion_ota
+        - diagnostics
+        - Nuevo componente
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridad Sugerida
+      options:
+        - Baja (nice-to-have)
+        - Media (mejora significativa)
+        - Alta (bloquea progreso)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas Consideradas
+      description: ¿Has considerado otras formas de resolver esto?
+    validations:
+      required: false

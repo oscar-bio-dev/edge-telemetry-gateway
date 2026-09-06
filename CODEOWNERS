@@ -1,12 +1,31 @@
 # Edge Telemetry Gateway — Code Ownership
+# Ref: Capa 2 §3 — Revisiones Especializadas (CODEOWNERS Granular)
 
 # Default owner for everything
 *                                   @oscar-bio-dev
 
-# Security-critical components (require 2 approvals)
+# ── Infrastructure & Governance ───────────────────────────────────
+/.github/                           @oscar-bio-dev
+/.agents/                           @oscar-bio-dev
+/docs/adr/                          @oscar-bio-dev
+
+# ── Build Configuration (critical) ───────────────────────────────
+sdkconfig*                          @oscar-bio-dev
+/partitions*                        @oscar-bio-dev
+CMakeLists.txt                      @oscar-bio-dev
+
+# ── Security-critical components (require careful review) ────────
 /components/cloud_transport/        @oscar-bio-dev
 /components/companion_ota/          @oscar-bio-dev
-/shared_components/cobs_crc/        @oscar-bio-dev
 
-# Companion firmware
+# ── Hardware-critical components ─────────────────────────────────
+/components/eth_manager/            @oscar-bio-dev
+/components/storage_manager/        @oscar-bio-dev
+/components/ipc_transport/          @oscar-bio-dev
+
+# ── Shared components & protocols ────────────────────────────────
+/shared_components/cobs_crc/        @oscar-bio-dev
+/shared_components/proto/           @oscar-bio-dev
+
+# ── Companion firmware ───────────────────────────────────────────
 /companion/                         @oscar-bio-dev

@@ -1,0 +1,93 @@
+name: 🐛 Bug Report
+description: Reportar un bug o comportamiento inesperado en el firmware del Gateway
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar este bug. Por favor, completa la información para facilitar el diagnóstico.
+
+  - type: dropdown
+    id: firmware
+    attributes:
+      label: Firmware Afectado
+      options:
+        - Host (ESP32-P4)
+        - Companion (ESP32-C6)
+        - Ambos
+    validations:
+      required: true
+
+  - type: input
+    id: idf-version
+    attributes:
+      label: Versión de ESP-IDF
+      placeholder: "ej. v5.4, v6.1"
+    validations:
+      required: true
+
+  - type: input
+    id: board
+    attributes:
+      label: Placa de Desarrollo
+      placeholder: "ej. Waveshare ESP32-P4-WIFI6-POE-ETH v1.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del Bug
+      description: Describe claramente qué ocurre y qué esperabas que ocurriera.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para Reproducir
+      description: Lista los pasos mínimos para reproducir el bug.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs del Monitor Serial
+      description: Pega aquí la salida relevante del monitor serial.
+      render: text
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente Afectado
+      multiple: true
+      options:
+        - cloud_transport
+        - eth_manager
+        - ipc_transport
+        - storage_manager
+        - telemetry_decoder
+        - telemetry_buffer
+        - offline_spooler
+        - companion_ota
+        - diagnostics
+        - main (orquestación)
+        - Otro
+    validations:
+      required: false
+
+  - type: textarea
+    id: sdkconfig
+    attributes:
+      label: sdkconfig Relevante
+      description: Pega aquí las líneas de sdkconfig que puedan ser relevantes.
+      render: ini
+    validations:
+      required: false
