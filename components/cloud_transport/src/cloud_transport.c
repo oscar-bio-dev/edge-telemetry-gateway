@@ -159,7 +159,7 @@ esp_err_t cloud_transport_init(void)
     ESP_LOGI(TAG, "Initializing Cloud Transport (GCP Pub/Sub) via mTLS...");
 
     // Create the publisher task on Core 0 (Networking Core)
-    xTaskCreatePinnedToCore(gcp_publisher_task, "gcp_publisher", 8192, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(gcp_publisher_task, "gcp_publisher", 16384, NULL, 5, NULL, 0);
 
     return ESP_OK;
 }
