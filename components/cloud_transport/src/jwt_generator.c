@@ -10,8 +10,14 @@
 #include "esp_log.h"
 #include "esp_random.h"
 #include "mbedtls/base64.h"
+#include "mbedtls/build_info.h"
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
+#include "mbedtls/version.h"
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/entropy.h"
+#endif
 
 static const char *TAG = "jwt_gen";
 
@@ -130,8 +136,18 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     size_t key_len = dev_private_key_pem_end - dev_private_key_pem_start;
 
     // key_len includes null terminator if provided, but mbedtls expects exact size including null
-    // term for PEM.
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
+
+    int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0,
+                                   mbedtls_ctr_drbg_random, &ctr_drbg);
+#else
     int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0);
+#endif
     if (ret != 0) {
         ESP_LOGE(TAG, "Failed to parse dev private key: -0x%04x", -ret);
         goto cleanup;
@@ -140,8 +156,13 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     unsigned char der_sig[MBEDTLS_PK_SIGNATURE_MAX_SIZE];
     size_t der_sig_len = 0;
 
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
     ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, sizeof(der_sig),
-                          &der_sig_len);
+                          &der_sig_len, mbedtls_ctr_drbg_random, &ctr_drbg);
+#else
+    ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, &der_sig_len, NULL,
+                          NULL);
+#endif
     if (ret != 0) {
         ESP_LOGE(TAG, "mbedtls_pk_sign failed: -0x%04x", -ret);
         goto cleanup;
@@ -154,6 +175,10 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     }
 
 cleanup:
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
+#endif
     mbedtls_pk_free(&pk);
     if (ret != 0)
         return ESP_FAIL;

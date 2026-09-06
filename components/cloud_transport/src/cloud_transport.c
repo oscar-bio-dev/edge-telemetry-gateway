@@ -28,6 +28,7 @@ static time_t s_jwt_expiry = 0;
 static int s_fail_count = 0;
 static bool s_is_online = true;
 
+/*
 static void refresh_jwt_if_needed(void)
 {
     time_t now = time(NULL);
@@ -43,6 +44,7 @@ static void refresh_jwt_if_needed(void)
         }
     }
 }
+*/
 
 #include "esp_mac.h"
 #include "esp_random.h"
