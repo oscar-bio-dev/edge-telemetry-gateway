@@ -29,6 +29,8 @@
 #include "telemetry_buffer.h"
 #include "telemetry_decoder.h"
 
+static const char *TAG = "gateway_main";
+
 #ifdef CONFIG_ENABLE_MOCK_TELEMETRY
 #include "esp_mac.h"
 #include "esp_random.h"
@@ -88,8 +90,6 @@ static void mock_telemetry_task(void *arg)
     }
 }
 #endif
-
-static const char *TAG = "gateway_main";
 
 void app_main(void)
 {
