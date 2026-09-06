@@ -44,24 +44,25 @@ static void refresh_jwt_if_needed(void)
     }
 }
 
-#include "telemetry.pb.h"
-#include "pb_encode.h"
-#include "mbedtls/base64.h"
 #include "esp_mac.h"
 #include "esp_random.h"
+#include "mbedtls/base64.h"
+#include "pb_encode.h"
+#include "telemetry.pb.h"
 
 // GCP Emulator Endpoint (Host IP)
-#define EMULATOR_ENDPOINT "http://192.168.0.32:8085/v1/projects/setaesense-iot-core/topics/room-telemetry-topic:publish"
+#define EMULATOR_ENDPOINT \
+    "http://192.168.0.32:8085/v1/projects/setaesense-iot-core/topics/room-telemetry-topic:publish"
 
-static void generate_uuid_v4(char *out) {
+static void generate_uuid_v4(char *out)
+{
     uint8_t rnd[16];
     esp_fill_random(rnd, sizeof(rnd));
-    rnd[6] = (rnd[6] & 0x0f) | 0x40; // Version 4
-    rnd[8] = (rnd[8] & 0x3f) | 0x80; // Variant 1
-    sprintf(out,
-            "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-            rnd[0], rnd[1], rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7],
-            rnd[8], rnd[9], rnd[10], rnd[11], rnd[12], rnd[13], rnd[14], rnd[15]);
+    rnd[6] = (rnd[6] & 0x0f) | 0x40;  // Version 4
+    rnd[8] = (rnd[8] & 0x3f) | 0x80;  // Variant 1
+    sprintf(out, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rnd[0],
+            rnd[1], rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7], rnd[8], rnd[9], rnd[10],
+            rnd[11], rnd[12], rnd[13], rnd[14], rnd[15]);
 }
 
 static void gcp_publisher_task(void *arg)
@@ -71,32 +72,37 @@ static void gcp_publisher_task(void *arg)
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_ETH);
     char gateway_id[18];
-    sprintf(gateway_id, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    sprintf(gateway_id, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4],
+            mac[5]);
 
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(5000)); // Publish every 5 seconds for testing
+        vTaskDelay(pdMS_TO_TICKS(5000));  // Publish every 5 seconds for testing
 
         // Create Payload
         telemetry_TelemetryPayload payload = telemetry_TelemetryPayload_init_zero;
-        
+
         payload.protocol_version = 1;
         payload.schema_version = 21;
-        
+
         char event_id[37];
         generate_uuid_v4(event_id);
         strncpy(payload.event_id, event_id, sizeof(payload.event_id));
         strncpy(payload.gateway_id, gateway_id, sizeof(payload.gateway_id));
         strncpy(payload.device_id, "AA:BB:CC:DD:EE:FF", sizeof(payload.device_id));
         payload.node_sequence = 1234;
-        
+
         payload.measured_at_ms = 1700000000000;
         payload.ingested_at_ms = 1700000000100;
-        
-        payload.has_temperature = true; payload.temperature = 24.5f;
-        payload.has_humidity = true;    payload.humidity = 45.2f;
-        payload.has_pressure = true;    payload.pressure = 1013.2f;
-        payload.has_co2 = true;         payload.co2 = 450;
-        
+
+        payload.has_temperature = true;
+        payload.temperature = 24.5f;
+        payload.has_humidity = true;
+        payload.humidity = 45.2f;
+        payload.has_pressure = true;
+        payload.pressure = 1013.2f;
+        payload.has_co2 = true;
+        payload.co2 = 450;
+
         uint8_t pb_buffer[256];
         pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
         if (!pb_encode(&stream, telemetry_TelemetryPayload_fields, &payload)) {
@@ -107,13 +113,14 @@ static void gcp_publisher_task(void *arg)
         // Base64 encode
         unsigned char base64_buf[512];
         size_t olen = 0;
-        mbedtls_base64_encode(base64_buf, sizeof(base64_buf), &olen, pb_buffer, stream.bytes_written);
+        mbedtls_base64_encode(base64_buf, sizeof(base64_buf), &olen, pb_buffer,
+                              stream.bytes_written);
         base64_buf[olen] = '\0';
 
         // Create JSON body
         char json_payload[1024];
-        snprintf(json_payload, sizeof(json_payload),
-                 "{\"messages\":[{\"data\":\"%s\"}]}", base64_buf);
+        snprintf(json_payload, sizeof(json_payload), "{\"messages\":[{\"data\":\"%s\"}]}",
+                 base64_buf);
 
         // HTTP POST to Emulator
         esp_http_client_config_t config = {
@@ -129,7 +136,9 @@ static void gcp_publisher_task(void *arg)
         if (err == ESP_OK) {
             int status = esp_http_client_get_status_code(client);
             if (status == 200) {
-                ESP_LOGI(TAG, "Successfully published synthetic payload (v21) to Pub/Sub Emulator! (Status 200)");
+                ESP_LOGI(TAG,
+                         "Successfully published synthetic payload (v21) to Pub/Sub Emulator! "
+                         "(Status 200)");
                 s_fail_count = 0;
                 s_is_online = true;
             } else {
@@ -140,9 +149,9 @@ static void gcp_publisher_task(void *arg)
             ESP_LOGE(TAG, "HTTP POST Failed to reach Emulator: %s", esp_err_to_name(err));
             s_fail_count++;
         }
-        
+
         esp_http_client_cleanup(client);
-        
+
         if (s_fail_count >= MAX_RETRIES) {
             if (s_is_online) {
                 ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");

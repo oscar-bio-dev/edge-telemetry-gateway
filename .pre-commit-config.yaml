@@ -1,6 +1,8 @@
 # pre-commit configuration for Edge Telemetry Gateway
 # Run: pre-commit install && pre-commit run --all-files
 
+exclude: '^(shared_components/nanopb/|shared_components/proto/.*\.pb\.|components/cjson/|components/ip101/)'
+
 repos:
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.8
@@ -8,7 +10,7 @@ repos:
       - id: clang-format
         types_or: [c, c++]
         args: [--style=file, --fallback-style=Google]
-        exclude: '^(shared_components/nanopb/|shared_components/proto/.*\.pb\.)'
+        exclude: '^(shared_components/nanopb/|shared_components/proto/.*\.pb\.|components/cjson/|components/ip101/)'
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
