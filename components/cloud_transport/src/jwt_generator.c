@@ -14,12 +14,15 @@
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/version.h"
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/entropy.h"
-#endif
 
 static const char *TAG = "jwt_gen";
+
+static int esp_rng_wrapper(void *p_rng, unsigned char *buf, size_t len)
+{
+    (void)p_rng;
+    esp_fill_random(buf, len);
+    return 0;
+}
 
 #ifndef CONFIG_HW_ECDSA_ENABLE
 // The development key embedded via target_add_binary_data
@@ -135,16 +138,9 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
 
     size_t key_len = dev_private_key_pem_end - dev_private_key_pem_start;
 
-    // key_len includes null terminator if provided, but mbedtls expects exact size including null
 #if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    mbedtls_ctr_drbg_context ctr_drbg;
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_init(&ctr_drbg);
-    mbedtls_entropy_init(&entropy);
-    mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
-
     int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0,
-                                   mbedtls_ctr_drbg_random, &ctr_drbg);
+                                   esp_rng_wrapper, NULL);
 #else
     int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0);
 #endif
@@ -158,7 +154,7 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
 
 #if MBEDTLS_VERSION_NUMBER >= 0x03000000
     ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, sizeof(der_sig),
-                          &der_sig_len, mbedtls_ctr_drbg_random, &ctr_drbg);
+                          &der_sig_len, esp_rng_wrapper, NULL);
 #else
     ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, &der_sig_len, NULL,
                           NULL);
@@ -175,10 +171,6 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     }
 
 cleanup:
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    mbedtls_ctr_drbg_free(&ctr_drbg);
-    mbedtls_entropy_free(&entropy);
-#endif
     mbedtls_pk_free(&pk);
     if (ret != 0)
         return ESP_FAIL;
