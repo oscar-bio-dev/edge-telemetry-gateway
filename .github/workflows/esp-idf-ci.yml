@@ -55,6 +55,8 @@ jobs:
                    | grep -v '/managed_components/' \
                    | grep -v '/generated/' \
                    | grep -v '/nanopb/' \
+                   | grep -v '/cjson/' \
+                   | grep -v '/ip101/' \
                    | grep -v '\.pb\.')
           if [ "$FAILED" -eq 1 ]; then
             echo "::error::clang-format check failed. Run 'pre-commit run --all-files' locally."
@@ -77,6 +79,8 @@ jobs:
                    | grep -v '/managed_components/' \
                    | grep -v '/generated/' \
                    | grep -v '/nanopb/' \
+                   | grep -v '/cjson/' \
+                   | grep -v '/ip101/' \
                    | grep -v '\.pb\.')
           if [ "$MISSING" -eq 1 ]; then
             echo "::warning::Some files are missing SPDX license headers."
