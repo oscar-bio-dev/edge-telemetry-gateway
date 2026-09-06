@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- **Lab Test 1 Readiness**: Implemented isolated `mock_telemetry_task` via Kconfig (`CONFIG_ENABLE_MOCK_TELEMETRY`) to inject dummy Protobufs directly into the RAM queue, validating the full End-to-End gateway pipeline without sensors.
+- **Dynamic Endpoints**: Migrated hardcoded Emulator IP to Kconfig (`CONFIG_GCP_PUBSUB_ENDPOINT`) to allow seamless transition between local lab testing and production GCP environments.
 - **Phase 2 (Hello World)**: Successfully achieved End-to-End communication with the local GCP Pub/Sub Emulator. Implemented dynamic `gateway_id` and synthetic UUIDv4 `event_id` generation in `cloud_transport.c`.
+
+### Changed
+- **Architecture Integrity**: Refactored `cloud_transport.c` to strictly pop messages from the RAM buffer (`telemetry_buffer_pop_batch`), removing technical debt where it bypassed the queue.
+- **Security Validation**: Re-enabled JWT signature generation and `Authorization` header injection even during local emulator testing, forcing the P4 to validate its crypto cycles (`mbedTLS`) before production.
+
+### Fixed
 - **Protobuf Mega-Schema v21**: Synchronized `telemetry.proto` and `gateway_health.proto` with the backend's v21 schema. Configured Nanopb static memory allocation for dynamic strings to prevent heap panics.
 - **ESP-IDF v6.1 Migration**: Successfully migrated to v6.1. Fixed RISC-V Illegal Instruction panics on ESP32-P4 v1.3 (ECO2) silicon by explicitly defining `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` in `sdkconfig.defaults`.
 - **MbedTLS 3 (PSA Crypto)**: Upgraded ECDSA JWT signing to use PSA Crypto APIs (`psa_sign_message`), deprecating legacy `mbedtls_pk_sign` entropy injection.

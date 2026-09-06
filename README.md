@@ -111,14 +111,26 @@ All parameters are configurable via `idf.py menuconfig`:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `BACKEND_URL` | `https://api.setaesense.local` | Rust backend endpoint |
-| `BACKEND_MTLS_PORT` | `8443` | mTLS connection port |
+| `GCP_PUBSUB_ENDPOINT` | `http://192.168.0.32...` | Pub/Sub Endpoint (Production or Emulator) |
+| `ENABLE_MOCK_TELEMETRY` | `y` (Lab mode) | Injects dummy data into RAM queue |
 | `IPC_UART_BAUD_RATE` | `460800` | UART speed (Host ↔ Companion) |
 | `ESPNOW_CHANNEL` | `1` | Wi-Fi channel (must match nodes) |
 | `ETH_MDC_GPIO` / `ETH_MDIO_GPIO` | `31` / `52` | Ethernet PHY MDIO bus |
 | `TELEMETRY_QUEUE_SIZE` | `64` | Ring buffer depth (samples) |
 | `CLOUD_PUBLISH_BATCH_SIZE` | `10` | Samples per HTTPS request |
 | `COMPANION_HEARTBEAT_TIMEOUT_MS` | `30000` | C6 watchdog timeout |
+
+## Lab Testing (Test 1)
+
+The Gateway features a built-in isolated mock injector to validate the End-to-End architecture (Queue -> JWT -> TLS -> Pub/Sub) without needing physical sensors.
+
+1. Ensure the Rust server's GCP Emulator is running on the local network.
+2. Run `idf.py menuconfig`.
+3. Under **Development & Lab Testing**, enable `Enable Mock Telemetry Injector`.
+4. Under **Edge Telemetry Gateway Configuration**, set `Google Cloud Pub/Sub Endpoint URL` to your local emulator IP (e.g. `http://192.168.0.32:8085/...`).
+5. Build and flash. The Gateway will inject dummy Protobufs every 5 seconds.
+
+> **Warning:** NEVER enable `ENABLE_MOCK_TELEMETRY` in production firmware.
 
 ## Component Status
 
