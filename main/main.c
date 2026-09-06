@@ -29,6 +29,66 @@
 #include "telemetry_buffer.h"
 #include "telemetry_decoder.h"
 
+#ifdef CONFIG_ENABLE_MOCK_TELEMETRY
+#include "esp_mac.h"
+#include "esp_random.h"
+#include "telemetry.pb.h"
+
+static void generate_uuid_v4(char *out)
+{
+    uint8_t rnd[16];
+    esp_fill_random(rnd, sizeof(rnd));
+    rnd[6] = (rnd[6] & 0x0f) | 0x40;  // Version 4
+    rnd[8] = (rnd[8] & 0x3f) | 0x80;  // Variant 1
+    sprintf(out, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rnd[0],
+            rnd[1], rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7], rnd[8], rnd[9], rnd[10],
+            rnd[11], rnd[12], rnd[13], rnd[14], rnd[15]);
+}
+
+static void mock_telemetry_task(void *arg)
+{
+    ESP_LOGW(TAG, "MOCK TELEMETRY TASK STARTED! (Testing mode only)");
+
+    char gateway_id[18] = {0};
+    uint8_t mac[6];
+    if (esp_read_mac(mac, ESP_MAC_ETH) == ESP_OK) {
+        sprintf(gateway_id, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4],
+                mac[5]);
+    }
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(5000));  // Generate fake data every 5 seconds
+
+        telemetry_TelemetryPayload payload = telemetry_TelemetryPayload_init_zero;
+        payload.protocol_version = 1;
+        payload.schema_version = 21;
+
+        generate_uuid_v4(payload.event_id);
+        strncpy(payload.gateway_id, gateway_id, sizeof(payload.gateway_id));
+        strncpy(payload.device_id, "MOCK:00:11:22:33", sizeof(payload.device_id));
+        payload.node_sequence = 9999;
+
+        payload.measured_at_ms = 1700000000000;
+        payload.ingested_at_ms = 1700000000100;
+
+        payload.has_temperature = true;
+        payload.temperature = 24.5f;
+        payload.has_humidity = true;
+        payload.humidity = 45.2f;
+        payload.has_pressure = true;
+        payload.pressure = 1013.2f;
+        payload.has_co2 = true;
+        payload.co2 = 450;
+
+        if (telemetry_buffer_push(&payload) == ESP_OK) {
+            ESP_LOGI(TAG, "Injected mock payload into RAM queue");
+        } else {
+            ESP_LOGE(TAG, "Failed to inject mock payload (Queue full?)");
+        }
+    }
+}
+#endif
+
 static const char *TAG = "gateway_main";
 
 void app_main(void)
@@ -73,6 +133,11 @@ void app_main(void)
 
     /* ── Phase 5: Diagnostics (Core 1) ────────────────────── */
     ESP_ERROR_CHECK(diagnostics_init());
+
+#ifdef CONFIG_ENABLE_MOCK_TELEMETRY
+    /* ── Phase 6: Mock Injector (Core 1) ──────────────────── */
+    xTaskCreatePinnedToCore(mock_telemetry_task, "mock_telemetry", 4096, NULL, 4, NULL, 1);
+#endif
 
     ESP_LOGI(TAG, "All subsystems initialized. Gateway is operational.");
 }

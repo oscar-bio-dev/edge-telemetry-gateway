@@ -14,6 +14,14 @@ menu "Edge Telemetry Gateway Configuration"
         help
             The Pub/Sub topic name where telemetry data will be published.
 
+    config GCP_PUBSUB_ENDPOINT
+        string "Google Cloud Pub/Sub Endpoint URL"
+        default "http://192.168.0.32:8085/v1/projects/setaesense-iot-core/topics/room-telemetry-topic:publish"
+        help
+            The HTTP/HTTPS endpoint for publishing telemetry.
+            Set to the Emulator URL for local lab tests.
+            Set to https://pubsub.googleapis.com/... for production.
+
     config GCP_PUB_SUB_DIAGNOSTICS_TOPIC
         string "Google Cloud Pub/Sub Diagnostics Topic"
         default "gateway-diagnostics-topic"
@@ -131,6 +139,18 @@ menu "Edge Telemetry Gateway Configuration"
                 in an eFuse block.
                 If disabled, a software fallback (mbedTLS) is used
                 with a development key (dev_private_key.pem).
+
+    endmenu
+
+    menu "Development & Lab Testing"
+
+        config ENABLE_MOCK_TELEMETRY
+            bool "Enable Mock Telemetry Injector"
+            default y
+            help
+                Creates a background task that periodically injects fake
+                telemetry Protobufs into the RAM queue for End-to-End testing
+                without physical sensors. DO NOT ENABLE IN PRODUCTION.
 
     endmenu
 

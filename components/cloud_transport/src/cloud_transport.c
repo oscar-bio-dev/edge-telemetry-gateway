@@ -28,7 +28,6 @@ static time_t s_jwt_expiry = 0;
 static int s_fail_count = 0;
 static bool s_is_online = true;
 
-/*
 static void refresh_jwt_if_needed(void)
 {
     time_t now = time(NULL);
@@ -44,7 +43,6 @@ static void refresh_jwt_if_needed(void)
         }
     }
 }
-*/
 
 #include "esp_mac.h"
 #include "esp_random.h"
@@ -52,20 +50,7 @@ static void refresh_jwt_if_needed(void)
 #include "pb_encode.h"
 #include "telemetry.pb.h"
 
-// GCP Emulator Endpoint (Host IP)
-#define EMULATOR_ENDPOINT \
-    "http://192.168.0.32:8085/v1/projects/setaesense-iot-core/topics/room-telemetry-topic:publish"
-
-static void generate_uuid_v4(char *out)
-{
-    uint8_t rnd[16];
-    esp_fill_random(rnd, sizeof(rnd));
-    rnd[6] = (rnd[6] & 0x0f) | 0x40;  // Version 4
-    rnd[8] = (rnd[8] & 0x3f) | 0x80;  // Variant 1
-    sprintf(out, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rnd[0],
-            rnd[1], rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7], rnd[8], rnd[9], rnd[10],
-            rnd[11], rnd[12], rnd[13], rnd[14], rnd[15]);
-}
+// Endpoint is now configured via Kconfig: CONFIG_GCP_PUBSUB_ENDPOINT
 
 static void gcp_publisher_task(void *arg)
 {
@@ -78,77 +63,81 @@ static void gcp_publisher_task(void *arg)
             mac[5]);
 
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(5000));  // Publish every 5 seconds for testing
+        telemetry_TelemetryPayload payloads[BATCH_SIZE];
+        size_t count = telemetry_buffer_pop_batch(payloads, BATCH_SIZE);
 
-        // Create Payload
-        telemetry_TelemetryPayload payload = telemetry_TelemetryPayload_init_zero;
-
-        payload.protocol_version = 1;
-        payload.schema_version = 21;
-
-        char event_id[37];
-        generate_uuid_v4(event_id);
-        strncpy(payload.event_id, event_id, sizeof(payload.event_id));
-        strncpy(payload.gateway_id, gateway_id, sizeof(payload.gateway_id));
-        strncpy(payload.device_id, "AA:BB:CC:DD:EE:FF", sizeof(payload.device_id));
-        payload.node_sequence = 1234;
-
-        payload.measured_at_ms = 1700000000000;
-        payload.ingested_at_ms = 1700000000100;
-
-        payload.has_temperature = true;
-        payload.temperature = 24.5f;
-        payload.has_humidity = true;
-        payload.humidity = 45.2f;
-        payload.has_pressure = true;
-        payload.pressure = 1013.2f;
-        payload.has_co2 = true;
-        payload.co2 = 450;
-
-        uint8_t pb_buffer[256];
-        pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
-        if (!pb_encode(&stream, telemetry_TelemetryPayload_fields, &payload)) {
-            ESP_LOGE(TAG, "Protobuf encoding failed: %s", PB_GET_ERROR(&stream));
+        if (count == 0) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
 
-        // Base64 encode
-        unsigned char base64_buf[512];
-        size_t olen = 0;
-        mbedtls_base64_encode(base64_buf, sizeof(base64_buf), &olen, pb_buffer,
-                              stream.bytes_written);
-        base64_buf[olen] = '\0';
+        refresh_jwt_if_needed();
 
-        // Create JSON body
-        char json_payload[1024];
-        snprintf(json_payload, sizeof(json_payload), "{\"messages\":[{\"data\":\"%s\"}]}",
-                 base64_buf);
+        // Formato JSON para Pub/Sub: {"messages": [{"data": "base64..."}, ...]}
+        char json_payload[2048] = "{\"messages\":[";
+        size_t json_len = strlen(json_payload);
 
-        // HTTP POST to Emulator
+        for (size_t i = 0; i < count; i++) {
+            uint8_t pb_buffer[256];
+            pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
+
+            // Inyectar gateway_id en cada mensaje si no está presente
+            if (strlen(payloads[i].gateway_id) == 0) {
+                strncpy(payloads[i].gateway_id, gateway_id, sizeof(payloads[i].gateway_id));
+            }
+
+            if (!pb_encode(&stream, telemetry_TelemetryPayload_fields, &payloads[i])) {
+                ESP_LOGE(TAG, "Protobuf encoding failed: %s", PB_GET_ERROR(&stream));
+                continue;
+            }
+
+            // Base64 encode
+            unsigned char base64_buf[512];
+            size_t olen = 0;
+            mbedtls_base64_encode(base64_buf, sizeof(base64_buf), &olen, pb_buffer,
+                                  stream.bytes_written);
+            base64_buf[olen] = '\0';
+
+            char msg_obj[600];
+            snprintf(msg_obj, sizeof(msg_obj), "{\"data\":\"%s\"}%s", base64_buf,
+                     (i < count - 1) ? "," : "");
+
+            if (json_len + strlen(msg_obj) < sizeof(json_payload) - 2) {
+                strcat(json_payload, msg_obj);
+                json_len += strlen(msg_obj);
+            }
+        }
+        strcat(json_payload, "]}");
+
+        // HTTP POST to Endpoint
         esp_http_client_config_t config = {
-            .url = EMULATOR_ENDPOINT,
+            .url = CONFIG_GCP_PUBSUB_ENDPOINT,
             .method = HTTP_METHOD_POST,
-            .timeout_ms = 3000,
+            .timeout_ms = 5000,
         };
         esp_http_client_handle_t client = esp_http_client_init(&config);
+
         esp_http_client_set_header(client, "Content-Type", "application/json");
+
+        char auth_header[768];
+        snprintf(auth_header, sizeof(auth_header), "Bearer %s", s_cached_jwt);
+        esp_http_client_set_header(client, "Authorization", auth_header);
+
         esp_http_client_set_post_field(client, json_payload, strlen(json_payload));
 
         esp_err_t err = esp_http_client_perform(client);
         if (err == ESP_OK) {
             int status = esp_http_client_get_status_code(client);
             if (status == 200) {
-                ESP_LOGI(TAG,
-                         "Successfully published synthetic payload (v21) to Pub/Sub Emulator! "
-                         "(Status 200)");
+                ESP_LOGI(TAG, "Successfully published %d payloads to Pub/Sub! (Status 200)", count);
                 s_fail_count = 0;
                 s_is_online = true;
             } else {
-                ESP_LOGE(TAG, "Emulator rejected payload. Status: %d", status);
+                ESP_LOGE(TAG, "Pub/Sub rejected payload. Status: %d", status);
                 s_fail_count++;
             }
         } else {
-            ESP_LOGE(TAG, "HTTP POST Failed to reach Emulator: %s", esp_err_to_name(err));
+            ESP_LOGE(TAG, "HTTP POST Failed to reach Pub/Sub: %s", esp_err_to_name(err));
             s_fail_count++;
         }
 
@@ -159,7 +148,8 @@ static void gcp_publisher_task(void *arg)
                 ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
                 s_is_online = false;
             }
-            offline_spooler_append(pb_buffer, stream.bytes_written);
+            // En producción aquí guardaríamos al spooler. Por ahora, solo logueamos la falla.
+            // offline_spooler_append(pb_buffer, stream.bytes_written);
         }
     }
 }
