@@ -17,13 +17,6 @@
 
 static const char *TAG = "jwt_gen";
 
-static int esp_rng_wrapper(void *p_rng, unsigned char *buf, size_t len)
-{
-    (void)p_rng;
-    esp_fill_random(buf, len);
-    return 0;
-}
-
 #ifndef CONFIG_HW_ECDSA_ENABLE
 // The development key embedded via target_add_binary_data
 extern const uint8_t dev_private_key_pem_start[] asm("_binary_dev_private_key_pem_start");
@@ -138,12 +131,7 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
 
     size_t key_len = dev_private_key_pem_end - dev_private_key_pem_start;
 
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0,
-                                   esp_rng_wrapper, NULL);
-#else
     int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0);
-#endif
     if (ret != 0) {
         ESP_LOGE(TAG, "Failed to parse dev private key: -0x%04x", -ret);
         goto cleanup;
@@ -152,13 +140,8 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     unsigned char der_sig[MBEDTLS_PK_SIGNATURE_MAX_SIZE];
     size_t der_sig_len = 0;
 
-#if MBEDTLS_VERSION_NUMBER >= 0x03000000
     ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, sizeof(der_sig),
-                          &der_sig_len, esp_rng_wrapper, NULL);
-#else
-    ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, &der_sig_len, NULL,
-                          NULL);
-#endif
+                          &der_sig_len);
     if (ret != 0) {
         ESP_LOGE(TAG, "mbedtls_pk_sign failed: -0x%04x", -ret);
         goto cleanup;
