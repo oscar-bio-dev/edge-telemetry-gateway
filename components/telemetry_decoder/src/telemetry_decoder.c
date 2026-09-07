@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "esp_log.h"
+#include "esp_random.h"
 #include "pb_decode.h"
 
 static const char *TAG = "telemetry_decoder";
@@ -44,6 +45,16 @@ esp_err_t telemetry_decode_payload(const uint8_t *raw_pb, size_t len, const uint
                  "sensor-%02X:%02X:%02X:%02X:%02X:%02X", src_mac[0], src_mac[1], src_mac[2],
                  src_mac[3], src_mac[4], src_mac[5]);
     }
+
+    // Inject unique event_id (UUID v4) to guarantee backend idempotency
+    uint8_t rnd[16];
+    esp_fill_random(rnd, sizeof(rnd));
+    rnd[6] = (rnd[6] & 0x0f) | 0x40;  // Version 4
+    rnd[8] = (rnd[8] & 0x3f) | 0x80;  // Variant 1
+    snprintf(out_data->event_id, sizeof(out_data->event_id),
+             "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rnd[0], rnd[1],
+             rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7], rnd[8], rnd[9], rnd[10], rnd[11],
+             rnd[12], rnd[13], rnd[14], rnd[15]);
 
     // Note: The timestamp is left empty (0) as per architectural decision,
     // since we do not have an SNTP synchronized RTC on the P4 yet, and

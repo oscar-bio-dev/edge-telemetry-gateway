@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- **Lab Test 2 Readiness (ESP-NOW E2E)**: Successfully integrated real encrypted ESP-NOW telemetry ingestion. Disabled the `mock_telemetry_task` on the Host (P4) and implemented CCMP encryption with `esp_now_set_pmk` on the Companion (C6). Included simulated peer provisioning (MAC injection via Kconfig) to avoid plaintext handshakes.
+- **Idempotency Guarantee**: Implemented hardware-accelerated UUIDv4 generation (`esp_fill_random`) in `telemetry_decoder.c` to inject a unique `event_id` into every received payload. This fully aligns the Gateway with the Rust Backend's `ON CONFLICT (event_id, measured_at) DO NOTHING` deduplication logic.
 - **Lab Test 1 Success**: Achieved a 100% successful End-to-End data flow! The Gateway (ESP32-P4) generated synthetic Protobuf payloads (Mock Telemetry Task), signed ECDSA JWT tokens on the fly, and published batches to the local GCP Pub/Sub Emulator (`oscar-bio-dev-project/room-telemetry`), which were successfully consumed by the Rust backend.
 - **Dynamic Endpoints**: Migrated hardcoded Emulator IP to Kconfig (`CONFIG_GCP_PUBSUB_ENDPOINT`). The defaults are now explicitly aligned with the Rust backend's Pub/Sub emulator topology.
 
