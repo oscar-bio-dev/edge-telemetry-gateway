@@ -133,6 +133,16 @@ The Gateway features a built-in isolated mock injector to validate the End-to-En
 
 > **Warning:** NEVER enable `ENABLE_MOCK_TELEMETRY` in production firmware.
 
+## Physical Integration (Test 2 - Validated)
+
+Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receiving real encrypted telemetry over **ESP-NOW**.
+**Status:** 100% Validated. Hardware UART collisions between P4 and C6 were resolved, and the Wi-Fi driver state machine was stabilized.
+
+1. Flash the ESP32-C6 (Companion) while keeping the P4 physical UART lines released.
+2. Obtain the base MAC address from the C6 logs (e.g., `B0:A6:04:9A:15:F8`).
+3. Inject the C6 MAC address, PMK, and LMK into the Sensor Node (`room-monitoring`) via Kconfig for secure CCMP-128 peer-to-peer encryption.
+4. The C6 receives the sensor broadcast, encapsulates it via COBS/CRC16, and sends it to the P4 Host for immediate uplink to the Cloud via Ethernet.
+
 ## Component Status
 
 | Component | Status | Description |
