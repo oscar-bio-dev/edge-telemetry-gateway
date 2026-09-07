@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- **Hardware Flashing Workaround (Waveshare P4 Board)**: Discovered that the P4 and C6 share the same internal UART hub. Implemented a temporary "hack" (tying C6 BOOT to GND via P4 GPIO 54 and freezing the P4) to release the physical UART lines, allowing the C6 to be flashed via an external UART bridge without `esptool` data collision errors.
 - **Lab Test 2 Readiness (ESP-NOW E2E)**: Successfully integrated real encrypted ESP-NOW telemetry ingestion. Disabled the `mock_telemetry_task` on the Host (P4) and implemented CCMP encryption with `esp_now_set_pmk` on the Companion (C6). Included simulated peer provisioning (MAC injection via Kconfig) to avoid plaintext handshakes.
+
+### Fixed
+- **Companion Wi-Fi Crash Loop (ESP_ERR_WIFI_NOT_STARTED)**: Fixed a fatal initialization bug in the C6 ESP-NOW receiver. Moved `esp_wifi_start()` before `esp_wifi_set_channel()` to strictly comply with the ESP-IDF Wi-Fi driver state machine, successfully stopping the crash loop and allowing the C6 to receive packets.
 - **Idempotency Guarantee**: Implemented hardware-accelerated UUIDv4 generation (`esp_fill_random`) in `telemetry_decoder.c` to inject a unique `event_id` into every received payload. This fully aligns the Gateway with the Rust Backend's `ON CONFLICT (event_id, measured_at) DO NOTHING` deduplication logic.
 - **Lab Test 1 Success**: Achieved a 100% successful End-to-End data flow! The Gateway (ESP32-P4) generated synthetic Protobuf payloads (Mock Telemetry Task), signed ECDSA JWT tokens on the fly, and published batches to the local GCP Pub/Sub Emulator (`oscar-bio-dev-project/room-telemetry`), which were successfully consumed by the Rust backend.
 - **Dynamic Endpoints**: Migrated hardcoded Emulator IP to Kconfig (`CONFIG_GCP_PUBSUB_ENDPOINT`). The defaults are now explicitly aligned with the Rust backend's Pub/Sub emulator topology.

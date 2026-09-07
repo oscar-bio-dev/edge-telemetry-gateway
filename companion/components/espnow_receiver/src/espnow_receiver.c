@@ -45,11 +45,11 @@ static esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
 
     // Set channel to match sensor nodes
     ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
-    ESP_ERROR_CHECK(esp_wifi_start());
     return ESP_OK;
 }
 
