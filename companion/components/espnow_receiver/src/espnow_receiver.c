@@ -71,13 +71,46 @@ esp_err_t espnow_receiver_init(void)
         return ESP_FAIL;
     }
 
-    // Register receive callback
+    // 1. Configurar PMK
+    ESP_ERROR_CHECK(esp_now_set_pmk((const uint8_t *)CONFIG_ESPNOW_PMK));
+
+    // 2. Registrar el callback de recepción
     esp_now_register_recv_cb(espnow_recv_cb);
 
+    // 3. Imprimir MAC del Gateway (Altamente visible)
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
-    ESP_LOGI(TAG, "ESP-NOW Receiver Initialized. MAC: %02X:%02X:%02X:%02X:%02X:%02X, Channel: %d",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], ESPNOW_WIFI_CHANNEL);
+    ESP_LOGW(TAG, "=========================================================");
+    ESP_LOGW(TAG, "🔌 GATEWAY MAC ADDRESS: %02X:%02X:%02X:%02X:%02X:%02X", 
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ESP_LOGW(TAG, "🔑 PMK: %s", CONFIG_ESPNOW_PMK);
+    ESP_LOGW(TAG, "🔑 LMK: %s", CONFIG_ESPNOW_LMK);
+    ESP_LOGW(TAG, "=========================================================");
+
+    // 4. Aprovisionamiento Simulado (Prueba 2): Parsear y agregar el Test Node
+    unsigned int mac_int[6];
+    if (sscanf(CONFIG_ESPNOW_TEST_NODE_MAC, "%x:%x:%x:%x:%x:%x", 
+               &mac_int[0], &mac_int[1], &mac_int[2], 
+               &mac_int[3], &mac_int[4], &mac_int[5]) == 6) {
+        
+        esp_now_peer_info_t peerInfo = {};
+        peerInfo.channel = ESPNOW_WIFI_CHANNEL;
+        peerInfo.ifidx = WIFI_IF_STA;
+        peerInfo.encrypt = true;
+        
+        for (int i = 0; i < 6; i++) {
+            peerInfo.peer_addr[i] = (uint8_t)mac_int[i];
+        }
+        memcpy(peerInfo.lmk, CONFIG_ESPNOW_LMK, 16);
+
+        if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to add Test Node peer: %s", CONFIG_ESPNOW_TEST_NODE_MAC);
+        } else {
+            ESP_LOGW(TAG, "✅ Test Node Peer Added (MAC: %s)", CONFIG_ESPNOW_TEST_NODE_MAC);
+        }
+    } else {
+        ESP_LOGE(TAG, "Invalid MAC format in CONFIG_ESPNOW_TEST_NODE_MAC: %s", CONFIG_ESPNOW_TEST_NODE_MAC);
+    }
 
     return ESP_OK;
 }

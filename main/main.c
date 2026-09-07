@@ -136,7 +136,8 @@ void app_main(void)
 
 #ifdef CONFIG_ENABLE_MOCK_TELEMETRY
     /* ── Phase 6: Mock Injector (Core 1) ──────────────────── */
-    xTaskCreatePinnedToCore(mock_telemetry_task, "mock_telemetry", 4096, NULL, 4, NULL, 1);
+    // xTaskCreatePinnedToCore(mock_telemetry_task, "mock_telemetry", 4096, NULL, 4, NULL, 1);
+    ESP_LOGI(TAG, "Mock Telemetry explicitly DISABLED for E2E Phase 2 test.");
 #endif
 
     ESP_LOGI(TAG, "All subsystems initialized. Gateway is operational.");
