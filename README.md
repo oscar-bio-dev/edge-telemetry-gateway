@@ -4,6 +4,17 @@
 > Receives ESP-NOW bursts from battery-powered sensor nodes and publishes to
 > Google Cloud Pub/Sub via HTTPS mTLS with JWT/ECDSA hardware-accelerated authentication.
 
+> [!WARNING]
+> **Board Status: Waveshare ESP32-P4-WIFI6-POE-ETH**
+> This repository was developed on the Waveshare ESP32-P4-WIFI6-POE-ETH board.
+> Development has been **frozen** due to irrecoverable C6 flashing instability
+> caused by the board's shared CH344Q USB hub architecture. See
+> [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md) for the
+> full post-mortem. Active development has moved to
+> [`edge-s3-gateway`](https://github.com/oscar-bio-dev/edge-s3-gateway)
+> (ESP32-S3 + W5500). The P4 firmware will be revived when the
+> ESP32-P4X-Function-EV-Board arrives (~Q1 2027).
+
 ---
 
 ## Hardware Platform
@@ -14,6 +25,20 @@
 |---|---|---|
 | **ESP32-P4** (Host) | Edge Hub — data pipeline, crypto, cloud | Dual RISC-V 400MHz, 16MB PSRAM, EMAC+IP101GRI PHY (100Mbit Ethernet), AES/SHA/RSA/ECC/ECDSA\_DS HW accelerators, PoE powered |
 | **ESP32-C6-MINI-1** (Companion) | RF Smart Proxy — ESP-NOW antenna | RISC-V 160MHz, Wi-Fi 6, native ESP-NOW, on-board SDIO/UART connection to P4 |
+
+### Known Hardware Issues
+
+> [!CAUTION]
+> The Waveshare ESP32-P4-WIFI6-POE-ETH has **critical limitations** for
+> dual-chip development. Read [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md)
+> before investing time in this board.
+
+| Issue | Severity | Details |
+|---|---|---|
+| C6 USB flashing via shared CH344Q hub | 🔴 **Critical** | `esptool` fails non-deterministically with `Serial data stream stopped`. The C6's USB-Serial/JTAG peripheral shares a quad-port USB hub with the P4. Hub re-enumeration races corrupt the SLIP protocol. |
+| P4 → C6 EN/BOOT GPIO control | 🟡 **Major** | GPIO54 (EN) and GPIO6 (BOOT) do not reliably toggle the C6's strapping pins. Host-Driven OTA via `esp-serial-flasher` is not feasible. |
+| UART collision on shared SDIO traces | 🟡 **Major** | P4 GPIO14/15 (IPC UART) share PCB traces with C6 GPIO20/21. P4 must be frozen before flashing C6 via H7 header. |
+| ESP32-P4 ECO2 rev 1.3 silicon | 🟢 **Resolved** | Requires `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` in `sdkconfig.defaults`. See [ADR-003](docs/adr/003-esp32p4-eco2-rev13-workarounds.md). |
 
 ## System Architecture
 
@@ -66,11 +91,14 @@ edge-telemetry-gateway/
 │   ├── cloud_transport/              ← HTTPS mTLS + JWT/ECDSA → Backend
 │   ├── eth_manager/                  ← EMAC + IP101GRI RMII + lwIP
 │   ├── companion_ota/                ← Host-Driven OTA via esp-serial-flasher
+│   ├── cli_manager/                  ← ESP Console CLI for peer provisioning
 │   └── diagnostics/                  ← Health checks, companion watchdog
 │
 ├── companion/
 │   ├── CMakeLists.txt                ← Companion project (target: esp32c6)
 │   ├── main/                         ← ESP-NOW Smart Proxy boot
+│   ├── flash_c6.sh                   ← Flash C6 via USB (unreliable, see ADR-006)
+│   ├── flash_c6_slow.sh              ← Baud-sweep flash script (9600–74880)
 │   └── components/
 │       ├── espnow_receiver/          ← Wi-Fi STA + ESP-NOW RX
 │       ├── ipc_sender/               ← COBS encode + UART TX
@@ -104,6 +132,13 @@ idf.py build
 # Flash via H7 debug header (default port /dev/ttyUSB1)
 ../scripts/flash_companion.sh /dev/ttyUSB1
 ```
+
+> [!IMPORTANT]
+> **Flashing the C6 is unreliable via the on-board USB.**
+> You must use an external USB-UART adapter connected to the H7 debug header,
+> with the P4 firmware compiled with `CONFIG_MODE_FLASH_COMPANION=y` to release
+> the shared UART lines. See [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md)
+> for the complete procedure and failure modes.
 
 ## Configuration
 
@@ -155,8 +190,9 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 | Ethernet manager | ✅ Implemented | EMAC + IP101GRI driver configured |
 | Cloud transport | ✅ Implemented | HTTPS mTLS to GCP Pub/Sub + JWT/ECDSA Auth |
 | Storage & Spooler | ✅ Implemented | MicroSD (SDMMC VFS) Store-and-Forward |
+| CLI Manager | ✅ Implemented | ESP Console REPL for dynamic peer provisioning |
 | Edge AI (ESP-DL) | 🔲 Stub | Neural Network inference on historical telemetry |
-| Host-Driven OTA | 🔲 Stub | esp-serial-flasher integration pending |
+| Host-Driven OTA | ❌ Blocked | esp-serial-flasher blocked by GPIO control issue (ADR-006) |
 | Diagnostics | ✅ Implemented | Watchdog + Degraded Mode health checks (Auto-Spooler Rerouting) |
 
 ## Architecture Decisions
@@ -165,9 +201,10 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 |---|---|---|
 | [001](docs/adr/001-bypass-esp-hosted.md) | Bypass ESP-Hosted — C6 as dedicated ESP-NOW proxy | Accepted |
 | [002](docs/adr/002-uart-ipc-over-sdio-traces.md) | UART IPC over internal SDIO D0/D1 traces with COBS | Accepted |
-| 003 | Unified Single Source of Truth Protobuf Schema | Accepted |
-| 004 | Direct HTTPS mTLS to Google Cloud Pub/Sub (Rust Backend Decoupled) | Accepted |
-| 005 | MicroSD SDMMC VFS (Spooler + ESP-DL) & Degraded Mode | Accepted |
+| [003](docs/adr/003-esp32p4-eco2-rev13-workarounds.md) | ESP32-P4 ECO2 Rev 1.3 Silicon Errata Workarounds | Accepted |
+| [004](docs/adr/004-mbedtls-cross-version-compat.md) | MbedTLS Cross-Version Compatibility | Accepted |
+| [005](docs/adr/005-microsd-vfs-and-degraded-mode.md) | MicroSD SDMMC VFS & Degraded Mode | Accepted |
+| [006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md) | **Waveshare P4-WIFI6-POE-ETH Post-Mortem** | Accepted |
 
 ## Security & Crypto
 

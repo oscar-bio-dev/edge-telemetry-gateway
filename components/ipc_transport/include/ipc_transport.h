@@ -38,6 +38,15 @@ esp_err_t ipc_transport_init(void);
  */
 esp_err_t ipc_transport_send(uint8_t type, const uint8_t *data, size_t len);
 
+/**
+ * @brief Send an IPC_MSG_ADD_PEER command to the C6 to dynamically provision a sensor node.
+ * 
+ * @param mac 6-byte MAC address of the sensor node
+ * @param lmk 16-byte Local Master Key for CCMP-128 encryption
+ * @return esp_err_t ESP_OK on success
+ */
+esp_err_t ipc_transport_send_add_peer(const uint8_t *mac, const uint8_t *lmk);
+
 #ifdef __cplusplus
 }
 #endif

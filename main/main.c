@@ -15,10 +15,12 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_ldo_regulator.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
+#include "esp_sleep.h"
 
 #include "cloud_transport.h"
 #include "companion_ota.h"
@@ -29,6 +31,8 @@
 #include "storage_manager.h"
 #include "telemetry_buffer.h"
 #include "telemetry_decoder.h"
+
+#include "cli_manager.h"
 
 static const char *TAG = "gateway_main";
 
@@ -53,6 +57,41 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "=== Edge Telemetry Gateway v0.1.0 ===");
     ESP_LOGI(TAG, "Target: ESP32-P4-WIFI6-POE-ETH (Waveshare)");
+
+    /* ── Maintenance Mode: Flash Companion ────────────────── */
+#ifdef CONFIG_MODE_FLASH_COMPANION
+    ESP_LOGW(TAG, "ENTERING HOST-DRIVEN FLASH MODE FOR COMPANION (C6)");
+
+    // Turn on PMU LDO channel 4 (3300mV) to power H7 / C6 optocouplers
+    esp_ldo_channel_config_t ldo_cfg = {.chan_id = CONFIG_SDCARD_LDO_CHANNEL, .voltage_mv = 3300};
+    esp_ldo_channel_handle_t sd_ldo_handle = NULL;
+    esp_ldo_acquire_channel(&ldo_cfg, &sd_ldo_handle);
+    ESP_LOGW(TAG, "Turned on LDO 4 to power H7 header and RainbowLink!");
+
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << CONFIG_COMPANION_RESET_GPIO) | (1ULL << CONFIG_COMPANION_BOOT_GPIO),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io_conf);
+    
+    // Put C6 into Download Mode
+    gpio_set_level(CONFIG_COMPANION_BOOT_GPIO, 0);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    gpio_set_level(CONFIG_COMPANION_RESET_GPIO, 0);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_set_level(CONFIG_COMPANION_RESET_GPIO, 1);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_set_level(CONFIG_COMPANION_BOOT_GPIO, 1);
+    
+    ESP_LOGW(TAG, "C6 is in Download Mode. Flash it via USB now. P4 is halted...");
+    // Enter infinite loop so P4 holds the GPIO states and doesn't interfere
+    while (1) {
+        vTaskDelay(portMAX_DELAY);
+    }
+#endif
 
     /* ── Phase 0: NVS ─────────────────────────────────────── */
     esp_err_t ret = nvs_flash_init();
@@ -89,8 +128,13 @@ void app_main(void)
     ESP_LOGI(TAG, "Cloud transport initialized (project=%s, topic=%s)", CONFIG_GCP_PROJECT_ID,
              CONFIG_GCP_PUB_SUB_TOPIC);
 
-    /* ── Phase 5: Diagnostics (Core 1) ────────────────────── */
+    /* ── Phase 5: Diagnostics & CLI (Core 1 / Console) ────── */
     ESP_ERROR_CHECK(diagnostics_init());
+
+#ifdef CONFIG_ENABLE_LAB_CLI
+    ESP_ERROR_CHECK(cli_manager_init());
+    ESP_LOGI(TAG, "CLI Manager initialized and node peers injected to C6");
+#endif
 
 #ifdef CONFIG_ENABLE_MOCK_TELEMETRY
     /* ── Phase 6: Mock Injector (Core 1) ──────────────────── */

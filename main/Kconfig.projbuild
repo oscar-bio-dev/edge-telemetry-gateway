@@ -152,6 +152,22 @@ menu "Edge Telemetry Gateway Configuration"
                 telemetry Protobufs into the RAM queue for End-to-End testing
                 without physical sensors. DO NOT ENABLE IN PRODUCTION.
 
+        config MODE_FLASH_COMPANION
+            bool "Host-Driven Flashing Mode (C6 Download Mode)"
+            default n
+            help
+                If enabled, the P4 will drive the C6 EN and BOOT pins to enter
+                download mode on boot, then the P4 will enter Deep Sleep.
+                Use this exclusively for flashing the C6 via the P4's USB.
+
+        config ENABLE_LAB_CLI
+            bool "Enable Lab CLI for Provisioning"
+            default y
+            help
+                Enables the esp_console CLI prompt for manual peer provisioning.
+                In production, peers will be provisioned via Pub/Sub, so this
+                should be disabled.
+
     endmenu
 
 endmenu

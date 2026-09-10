@@ -12,4 +12,5 @@ idf_component_register(
         diagnostics
         storage_manager
         offline_spooler
+        cli_manager
 )

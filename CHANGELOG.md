@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased
 
 ### Added
+- **ADR-006 — Waveshare Post-Mortem**: Comprehensive post-mortem documenting all hardware limitations, workarounds, and failure modes of the Waveshare ESP32-P4-WIFI6-POE-ETH board's dual-chip architecture. Documents the shared CH344Q USB hub as the root cause of irrecoverable C6 flashing failures. Includes board verdict, GPIO control analysis, and migration path to ESP32-P4X-Function-EV-Board. See [`docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md`](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md).
+- **CLI Manager Component** (`components/cli_manager/`): Interactive `esp_console` REPL for dynamic ESP-NOW peer provisioning. Supports `node_add <mac> <lmk>` with NVS persistence and IPC forwarding to C6 Companion.
+- **C6 Flash Scripts** (`companion/flash_c6.sh`, `companion/flash_c6_slow.sh`): Shell scripts for manual C6 flashing via `/dev/ttyACM5` with `--no-stub` and baud-rate sweep (9600–74880) workarounds.
 - **Hardware Flashing Workaround (Waveshare P4 Board)**: Discovered that the P4 and C6 share the same internal UART hub. Implemented a temporary "hack" (tying C6 BOOT to GND via P4 GPIO 54 and freezing the P4) to release the physical UART lines, allowing the C6 to be flashed via an external UART bridge without `esptool` data collision errors.
 - **Lab Test 2 Readiness (ESP-NOW E2E)**: Successfully integrated real encrypted ESP-NOW telemetry ingestion. Disabled the `mock_telemetry_task` on the Host (P4) and implemented CCMP encryption with `esp_now_set_pmk` on the Companion (C6). Included simulated peer provisioning (MAC injection via Kconfig) to avoid plaintext handshakes.
 
@@ -18,10 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic Endpoints**: Migrated hardcoded Emulator IP to Kconfig (`CONFIG_GCP_PUBSUB_ENDPOINT`). The defaults are now explicitly aligned with the Rust backend's Pub/Sub emulator topology.
 
 ### Changed
+- **Project Status → Frozen**: Development on this board has been frozen pending arrival of ESP32-P4X-Function-EV-Board (~Q1 2027). Active development continues in `edge-s3-gateway` (ESP32-S3 + W5500).
 - **Architecture Integrity**: Refactored `cloud_transport.c` to strictly pop messages from the RAM buffer (`telemetry_buffer_pop_batch`), removing technical debt where it bypassed the queue.
 - **Security Validation**: Re-enabled JWT signature generation and `Authorization` header injection even during local emulator testing, forcing the P4 to validate its crypto cycles (`mbedTLS`) before production.
 
-### Fixed
+### Deprecated
+- **Host-Driven OTA** (`companion_ota`): Blocked on this board due to unreliable GPIO54/GPIO6 control of C6 EN/BOOT pins. Will be re-evaluated on ESP32-P4X-Function-EV-Board.
+
+### Known Issues
+- **C6 USB Flashing Permanently Broken**: After the initial successful flash, all subsequent attempts via `/dev/ttyACM5` fail with `Serial data stream stopped` at the `get_security_info` stage. Root cause: CH344Q USB hub re-enumeration race. No software workaround exists. See [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md).
+
+### Fixed (Earlier)
 - **Stack Protection Fault**: Increased `gcp_publisher_task` stack size from 8192 to 16384 bytes to prevent `Guru Meditation Error` (Stack Overflow) caused by MbedTLS ECDSA cryptographic calculations during JWT generation.
 - **True MbedTLS 3 Migration**: Officially aligned `mbedtls_pk_parse_key` and `mbedtls_pk_sign` signatures with ESP-IDF v6.1 PSA Crypto specifications (removed legacy `f_rng` and `ctr_drbg` entropy arguments as PSA handles them internally).
 - **Protobuf Mega-Schema v21**: Synchronized `telemetry.proto` and `gateway_health.proto` with the backend's v21 schema. Configured Nanopb static memory allocation for dynamic strings to prevent heap panics.

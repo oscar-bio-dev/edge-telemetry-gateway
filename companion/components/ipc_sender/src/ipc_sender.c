@@ -12,6 +12,12 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "espnow_receiver.h"
+#include "ipc_frame.h"
+
 #define UART_PORT_NUM  UART_NUM_1
 #define UART_BAUD_RATE CONFIG_IPC_UART_BAUD_RATE
 #define UART_TX_PIN    CONFIG_IPC_UART_TX_GPIO
@@ -20,6 +26,59 @@
 
 static const char *TAG = "ipc_sender";
 static uint16_t global_seq_num = 0;
+static QueueHandle_t uart_evt_que = NULL;
+
+static void ipc_rx_task(void *arg)
+{
+    uart_event_t event;
+    uint8_t *dtmp = (uint8_t *)malloc(UART_BUF_SIZE);
+    
+    uint8_t frame_buffer[IPC_ENCODED_FRAME_MAX_SIZE];
+    size_t frame_idx = 0;
+
+    while (1) {
+        if (xQueueReceive(uart_evt_que, (void *)&event, portMAX_DELAY)) {
+            if (event.type == UART_DATA) {
+                int rx_bytes = uart_read_bytes(UART_PORT_NUM, dtmp, event.size, portMAX_DELAY);
+                for (int i = 0; i < rx_bytes; i++) {
+                    uint8_t b = dtmp[i];
+                    if (b == 0x00) {
+                        if (frame_idx > 0) {
+                            uint8_t decoded_buf[IPC_RAW_FRAME_MAX_SIZE];
+                            size_t decoded_len = cobs_decode(frame_buffer, frame_idx, decoded_buf);
+                            if (decoded_len >= IPC_FRAME_MIN_SIZE) {
+                                uint16_t expected_crc = (decoded_buf[decoded_len - 2] << 8) | decoded_buf[decoded_len - 1];
+                                uint16_t calc_crc = crc16_ccitt(decoded_buf, decoded_len - 2);
+                                if (calc_crc == expected_crc) {
+                                    ipc_header_t *header = (ipc_header_t *)decoded_buf;
+                                    if (header->type == IPC_MSG_ADD_PEER) {
+                                        ipc_add_peer_payload_t *payload = (ipc_add_peer_payload_t *)(decoded_buf + sizeof(ipc_header_t));
+                                        espnow_add_dynamic_peer(payload->mac, payload->lmk);
+                                    }
+                                } else {
+                                    ESP_LOGW(TAG, "CRC Error in RX: Calc 0x%04X != Exp 0x%04X", calc_crc, expected_crc);
+                                }
+                            }
+                            frame_idx = 0;
+                        }
+                    } else {
+                        if (frame_idx < sizeof(frame_buffer)) {
+                            frame_buffer[frame_idx++] = b;
+                        } else {
+                            ESP_LOGE(TAG, "RX Frame buffer overflow! Dropping.");
+                            frame_idx = 0;
+                        }
+                    }
+                }
+            } else if (event.type == UART_FIFO_OVF || event.type == UART_BUFFER_FULL) {
+                uart_flush_input(UART_PORT_NUM);
+                xQueueReset(uart_evt_que);
+            }
+        }
+    }
+    free(dtmp);
+    vTaskDelete(NULL);
+}
 
 esp_err_t ipc_sender_init(void)
 {
@@ -41,11 +100,13 @@ esp_err_t ipc_sender_init(void)
     if (err != ESP_OK)
         return err;
 
-    err = uart_driver_install(UART_PORT_NUM, UART_BUF_SIZE, UART_BUF_SIZE, 0, NULL, 0);
+    err = uart_driver_install(UART_PORT_NUM, UART_BUF_SIZE, UART_BUF_SIZE, 20, &uart_evt_que, 0);
     if (err != ESP_OK)
         return err;
 
-    ESP_LOGI(TAG, "UART IPC Sender Initialized on TX:%d RX:%d @ %d bps", UART_TX_PIN, UART_RX_PIN,
+    xTaskCreate(ipc_rx_task, "ipc_rx", 4096, NULL, 5, NULL);
+
+    ESP_LOGI(TAG, "UART IPC Initialized on TX:%d RX:%d @ %d bps", UART_TX_PIN, UART_RX_PIN,
              UART_BAUD_RATE);
     return ESP_OK;
 }

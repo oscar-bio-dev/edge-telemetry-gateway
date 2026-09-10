@@ -11,6 +11,7 @@
 #include "ipc_sender.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
+#include <string.h>
 
 #define ESPNOW_WIFI_CHANNEL CONFIG_ESPNOW_CHANNEL
 
@@ -84,32 +85,36 @@ esp_err_t espnow_receiver_init(void)
     ESP_LOGW(TAG, "🔌 GATEWAY MAC ADDRESS: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2],
              mac[3], mac[4], mac[5]);
     ESP_LOGW(TAG, "🔑 PMK: %s", CONFIG_ESPNOW_PMK);
-    ESP_LOGW(TAG, "🔑 LMK: %s", CONFIG_ESPNOW_LMK);
     ESP_LOGW(TAG, "=========================================================");
 
-    // 4. Aprovisionamiento Simulado (Prueba 2): Parsear y agregar el Test Node
-    unsigned int mac_int[6];
-    if (sscanf(CONFIG_ESPNOW_TEST_NODE_MAC, "%x:%x:%x:%x:%x:%x", &mac_int[0], &mac_int[1],
-               &mac_int[2], &mac_int[3], &mac_int[4], &mac_int[5]) == 6) {
-        esp_now_peer_info_t peerInfo = {};
-        peerInfo.channel = ESPNOW_WIFI_CHANNEL;
-        peerInfo.ifidx = WIFI_IF_STA;
-        peerInfo.encrypt = true;
-
-        for (int i = 0; i < 6; i++) {
-            peerInfo.peer_addr[i] = (uint8_t)mac_int[i];
-        }
-        memcpy(peerInfo.lmk, CONFIG_ESPNOW_LMK, 16);
-
-        if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to add Test Node peer: %s", CONFIG_ESPNOW_TEST_NODE_MAC);
-        } else {
-            ESP_LOGW(TAG, "✅ Test Node Peer Added (MAC: %s)", CONFIG_ESPNOW_TEST_NODE_MAC);
-        }
-    } else {
-        ESP_LOGE(TAG, "Invalid MAC format in CONFIG_ESPNOW_TEST_NODE_MAC: %s",
-                 CONFIG_ESPNOW_TEST_NODE_MAC);
-    }
-
     return ESP_OK;
+}
+
+esp_err_t espnow_add_dynamic_peer(const uint8_t *mac, const uint8_t *lmk)
+{
+    esp_now_peer_info_t peerInfo = {};
+    peerInfo.channel = ESPNOW_WIFI_CHANNEL;
+    peerInfo.ifidx = WIFI_IF_STA;
+    peerInfo.encrypt = true;
+
+    memcpy(peerInfo.peer_addr, mac, 6);
+    memcpy(peerInfo.lmk, lmk, 16);
+
+    // If peer already exists, we might need to modify it or it will return ESP_ERR_ESPNOW_EXIST.
+    // For simplicity, we just try to add. If it fails because it exists, we could delete and re-add.
+    esp_err_t err = esp_now_add_peer(&peerInfo);
+    if (err == ESP_ERR_ESPNOW_EXIST) {
+        esp_now_del_peer(mac);
+        err = esp_now_add_peer(&peerInfo);
+    }
+    
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to dynamically add peer %02X:%02X:%02X:%02X:%02X:%02X: %s",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "✅ Dynamically added peer %02X:%02X:%02X:%02X:%02X:%02X",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+    
+    return err;
 }

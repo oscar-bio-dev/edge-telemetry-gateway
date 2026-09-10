@@ -14,18 +14,6 @@ menu "Edge Companion (C6) Configuration"
         help
             16-byte Primary Master Key. Must match exactly on both Node and Gateway.
 
-    config ESPNOW_LMK
-        string "Local Master Key (LMK)"
-        default "lmk1234567890123"
-        help
-            16-byte Local Master Key used for CCMP encryption of ESP-NOW frames.
-
-    config ESPNOW_TEST_NODE_MAC
-        string "Test Node MAC Address (XX:XX:XX:XX:XX:XX)"
-        default "AA:BB:CC:11:22:33"
-        help
-            MAC address of the sensor node used for laboratory testing.
-            The Companion C6 will add this MAC as an encrypted peer on startup.
 
     config IPC_UART_BAUD_RATE
         int "IPC UART Baud Rate (Companion -> Host)"

@@ -25,11 +25,20 @@ typedef enum {
     IPC_MSG_HEARTBEAT = 0x02,  /**< C6 alive signal, no payload */
     IPC_MSG_NODE_JOIN = 0x03,  /**< New ESP-NOW node detected */
     IPC_MSG_NODE_LEAVE = 0x04, /**< Node not seen in N cycles */
+    IPC_MSG_ADD_PEER = 0x05,   /**< Host commands C6 to add a new ESP-NOW peer */
     IPC_MSG_C6_STATUS = 0x10,  /**< C6 firmware version, uptime, etc. */
     IPC_MSG_P4_CMD = 0x80,     /**< Command from P4 to C6 (channel change, etc.) */
     IPC_MSG_OTA_START = 0xFE,  /**< P4 signals OTA start to C6 */
     IPC_MSG_ACK = 0xFF,        /**< Generic acknowledgment */
 } ipc_msg_type_t;
+
+/**
+ * @brief Payload for IPC_MSG_ADD_PEER (Host -> C6).
+ */
+typedef struct __attribute__((packed)) {
+    uint8_t mac[6];       /**< MAC Address of the Sensor Node */
+    uint8_t lmk[16];      /**< Local Master Key for CCMP-128 encryption */
+} ipc_add_peer_payload_t;
 
 /**
  * @brief IPC frame header (pre-COBS encoding).

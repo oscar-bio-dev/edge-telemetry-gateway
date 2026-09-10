@@ -200,12 +200,12 @@ esp_eth_phy_t *esp_eth_phy_new_ip101(const eth_phy_config_t *config)
     ESP_GOTO_ON_FALSE(ip101, NULL, err, TAG, "calloc ip101 failed");
     eth_phy_config_t ip101_config = *config;
     // default chip specific configuration
-    if (config->hw_reset_assert_time_us == 0) {
-        ip101_config.hw_reset_assert_time_us = IP101_PHY_RESET_ASSERTION_TIME_US;
-    }
-    if (config->post_hw_reset_delay_ms == 0) {
-        ip101_config.post_hw_reset_delay_ms = IP101_PHY_POST_RESET_INIT_TIME_MS;
-    }
+    // if (config->hw_reset_assert_time_us == 0) {
+    //     ip101_config.hw_reset_assert_time_us = IP101_PHY_RESET_ASSERTION_TIME_US;
+    // }
+    // if (config->post_hw_reset_delay_ms == 0) {
+    //     ip101_config.post_hw_reset_delay_ms = IP101_PHY_POST_RESET_INIT_TIME_MS;
+    // }
     ESP_GOTO_ON_FALSE(esp_eth_phy_802_3_obj_config_init(&ip101->phy_802_3, &ip101_config) == ESP_OK,
                       NULL, err, TAG, "configuration initialization of PHY 802.3 failed");
 
