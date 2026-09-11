@@ -4,7 +4,7 @@
 > **DEPRECATED**: This dual-chip architecture (ESP32-P4 + C6) is no longer under active development and serves as an **archival/historical reference**.
 > Due to critical hardware defects on the Waveshare P4 board (unresolvable SDIO/UART pin multiplexing conflicts causing firmware lockups on the C6), this project has been migrated to a single-chip **ESP32-S3** architecture.
 >
-> Please use the new repository: [`edge-s3-gateway`](../edge-s3-gateway)
+> Please use the new repository: [`esp32s3-edge-gateway`](../esp32s3-edge-gateway)
 
 > **Edge-to-Cloud telemetry hub** for ultra-low-power environmental monitoring networks.
 > Receives ESP-NOW bursts from battery-powered sensor nodes and publishes to
@@ -17,7 +17,7 @@
 > caused by the board's shared CH344Q USB hub architecture. See
 > [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md) for the
 > full post-mortem. Active development has moved to
-> [`edge-s3-gateway`](https://github.com/oscar-bio-dev/edge-s3-gateway)
+> [`esp32s3-edge-gateway`](https://github.com/oscar-bio-dev/esp32s3-edge-gateway)
 > (ESP32-S3 + W5500). The P4 firmware will be revived when the
 > ESP32-P4X-Function-EV-Board arrives (~Q1 2027).
 

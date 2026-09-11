@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - Unreleased (Archived)
 
 > **NOTICE**: This repository has been officially archived and deprecated.
-> All future development has moved to the `edge-s3-gateway` project due to unresolvable hardware conflicts on the ESP32-P4+C6 Waveshare board. The code remains here as an architectural and technical reference for dual-chip IPC over UART.
+> All future development has moved to the `esp32s3-edge-gateway` project due to unresolvable hardware conflicts on the ESP32-P4+C6 Waveshare board. The code remains here as an architectural and technical reference for dual-chip IPC over UART.
 
 ### Added
 - **ADR-006 — Waveshare Post-Mortem**: Comprehensive post-mortem documenting all hardware limitations, workarounds, and failure modes of the Waveshare ESP32-P4-WIFI6-POE-ETH board's dual-chip architecture. Documents the shared CH344Q USB hub as the root cause of irrecoverable C6 flashing failures. Includes board verdict, GPIO control analysis, and migration path to ESP32-P4X-Function-EV-Board. See [`docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md`](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md).
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic Endpoints**: Migrated hardcoded Emulator IP to Kconfig (`CONFIG_GCP_PUBSUB_ENDPOINT`). The defaults are now explicitly aligned with the Rust backend's Pub/Sub emulator topology.
 
 ### Changed
-- **Project Status → Frozen**: Development on this board has been frozen pending arrival of ESP32-P4X-Function-EV-Board (~Q1 2027). Active development continues in `edge-s3-gateway` (ESP32-S3 + W5500).
+- **Project Status → Frozen**: Development on this board has been frozen pending arrival of ESP32-P4X-Function-EV-Board (~Q1 2027). Active development continues in `esp32s3-edge-gateway` (ESP32-S3 + W5500).
 - **Architecture Integrity**: Refactored `cloud_transport.c` to strictly pop messages from the RAM buffer (`telemetry_buffer_pop_batch`), removing technical debt where it bypassed the queue.
 - **Security Validation**: Re-enabled JWT signature generation and `Authorization` header injection even during local emulator testing, forcing the P4 to validate its crypto cycles (`mbedTLS`) before production.
 
