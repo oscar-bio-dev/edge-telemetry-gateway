@@ -36,8 +36,8 @@ typedef enum {
  * @brief Payload for IPC_MSG_ADD_PEER (Host -> C6).
  */
 typedef struct __attribute__((packed)) {
-    uint8_t mac[6];       /**< MAC Address of the Sensor Node */
-    uint8_t lmk[16];      /**< Local Master Key for CCMP-128 encryption */
+    uint8_t mac[6];  /**< MAC Address of the Sensor Node */
+    uint8_t lmk[16]; /**< Local Master Key for CCMP-128 encryption */
 } ipc_add_peer_payload_t;
 
 /**

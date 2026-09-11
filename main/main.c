@@ -13,14 +13,14 @@
 
 #include <stdio.h>
 
+#include "driver/gpio.h"
 #include "esp_err.h"
-#include "esp_log.h"
 #include "esp_ldo_regulator.h"
+#include "esp_log.h"
+#include "esp_sleep.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
-#include "driver/gpio.h"
-#include "esp_sleep.h"
 
 #include "cloud_transport.h"
 #include "companion_ota.h"
@@ -40,17 +40,6 @@ static const char *TAG = "gateway_main";
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "telemetry.pb.h"
-
-static void generate_uuid_v4(char *out)
-{
-    uint8_t rnd[16];
-    esp_fill_random(rnd, sizeof(rnd));
-    rnd[6] = (rnd[6] & 0x0f) | 0x40;  // Version 4
-    rnd[8] = (rnd[8] & 0x3f) | 0x80;  // Variant 1
-    sprintf(out, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rnd[0],
-            rnd[1], rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7], rnd[8], rnd[9], rnd[10],
-            rnd[11], rnd[12], rnd[13], rnd[14], rnd[15]);
-}
 #endif
 
 void app_main(void)
@@ -69,14 +58,15 @@ void app_main(void)
     ESP_LOGW(TAG, "Turned on LDO 4 to power H7 header and RainbowLink!");
 
     gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << CONFIG_COMPANION_RESET_GPIO) | (1ULL << CONFIG_COMPANION_BOOT_GPIO),
+        .pin_bit_mask =
+            (1ULL << CONFIG_COMPANION_RESET_GPIO) | (1ULL << CONFIG_COMPANION_BOOT_GPIO),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE,
     };
     gpio_config(&io_conf);
-    
+
     // Put C6 into Download Mode
     gpio_set_level(CONFIG_COMPANION_BOOT_GPIO, 0);
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -85,7 +75,7 @@ void app_main(void)
     gpio_set_level(CONFIG_COMPANION_RESET_GPIO, 1);
     vTaskDelay(pdMS_TO_TICKS(50));
     gpio_set_level(CONFIG_COMPANION_BOOT_GPIO, 1);
-    
+
     ESP_LOGW(TAG, "C6 is in Download Mode. Flash it via USB now. P4 is halted...");
     // Enter infinite loop so P4 holds the GPIO states and doesn't interfere
     while (1) {

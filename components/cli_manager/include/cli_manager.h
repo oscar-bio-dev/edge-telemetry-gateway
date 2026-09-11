@@ -13,7 +13,7 @@ extern "C" {
 
 /**
  * @brief Initialize the CLI (esp_console) on the default UART and register commands.
- * 
+ *
  * Also reads stored peers from NVS and injects them to the C6 via IPC.
  */
 esp_err_t cli_manager_init(void);

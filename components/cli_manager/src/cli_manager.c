@@ -9,9 +9,9 @@
 #include "argtable3/argtable3.h"
 #include "esp_console.h"
 #include "esp_log.h"
+#include "ipc_transport.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "ipc_transport.h"
 
 static const char *TAG = "cli_manager";
 
@@ -23,16 +23,17 @@ static struct {
 } add_node_args;
 
 // Helper to parse MAC
-static bool parse_mac(const char *mac_str, uint8_t *mac_bytes) {
-    if (sscanf(mac_str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-               &mac_bytes[0], &mac_bytes[1], &mac_bytes[2],
-               &mac_bytes[3], &mac_bytes[4], &mac_bytes[5]) == 6) {
+static bool parse_mac(const char *mac_str, uint8_t *mac_bytes)
+{
+    if (sscanf(mac_str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &mac_bytes[0], &mac_bytes[1],
+               &mac_bytes[2], &mac_bytes[3], &mac_bytes[4], &mac_bytes[5]) == 6) {
         return true;
     }
     return false;
 }
 
-static void inject_peer_to_c6(const uint8_t *mac, const uint8_t *lmk) {
+static void inject_peer_to_c6(const uint8_t *mac, const uint8_t *lmk)
+{
     ipc_transport_send_add_peer(mac, lmk);
 }
 
@@ -44,10 +45,12 @@ typedef struct {
     uint8_t lmk[16];
 } stored_peer_t;
 
-static esp_err_t store_peer_in_nvs(const uint8_t *mac, const uint8_t *lmk) {
+static esp_err_t store_peer_in_nvs(const uint8_t *mac, const uint8_t *lmk)
+{
     nvs_handle_t handle;
     esp_err_t err = nvs_open(PEERS_NAMESPACE, NVS_READWRITE, &handle);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK)
+        return err;
 
     uint32_t count = 0;
     nvs_get_u32(handle, "count", &count);
@@ -58,8 +61,9 @@ static esp_err_t store_peer_in_nvs(const uint8_t *mac, const uint8_t *lmk) {
     stored_peer_t peer;
     memcpy(peer.mac, mac, 6);
     memset(peer.lmk, 0, 16);
-    size_t lmk_len = strlen((const char*)lmk);
-    if (lmk_len > 16) lmk_len = 16;
+    size_t lmk_len = strlen((const char *)lmk);
+    if (lmk_len > 16)
+        lmk_len = 16;
     memcpy(peer.lmk, lmk, lmk_len);
 
     err = nvs_set_blob(handle, key, &peer, sizeof(peer));
@@ -72,7 +76,8 @@ static esp_err_t store_peer_in_nvs(const uint8_t *mac, const uint8_t *lmk) {
     return err;
 }
 
-static void load_and_inject_peers(void) {
+static void load_and_inject_peers(void)
+{
     nvs_handle_t handle;
     if (nvs_open(PEERS_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) {
         ESP_LOGI(TAG, "No stored peers found.");
@@ -95,8 +100,9 @@ static void load_and_inject_peers(void) {
     nvs_close(handle);
 }
 
-static int cmd_node_add(int argc, char **argv) {
-    int nerrors = arg_parse(argc, argv, (void **) &add_node_args);
+static int cmd_node_add(int argc, char **argv)
+{
+    int nerrors = arg_parse(argc, argv, (void **)&add_node_args);
     if (nerrors != 0) {
         arg_print_errors(stderr, add_node_args.end, argv[0]);
         return 1;
@@ -129,11 +135,12 @@ static int cmd_node_add(int argc, char **argv) {
     return 0;
 }
 
-esp_err_t cli_manager_init(void) {
+esp_err_t cli_manager_init(void)
+{
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
-    
+
     // Disable console output prompt temporarily to avoid spam
     repl_config.prompt = "edge-gw> ";
 
@@ -148,8 +155,7 @@ esp_err_t cli_manager_init(void) {
         .help = "Registra un nuevo Nodo Sensor de confianza y lo inyecta al Modem C6",
         .hint = NULL,
         .func = &cmd_node_add,
-        .argtable = &add_node_args
-    };
+        .argtable = &add_node_args};
     ESP_ERROR_CHECK(esp_console_cmd_register(&add_cmd));
 
     ESP_ERROR_CHECK(esp_console_start_repl(repl));

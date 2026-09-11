@@ -4,6 +4,7 @@
  */
 
 #include "espnow_receiver.h"
+#include <string.h>
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_now.h"
@@ -11,7 +12,6 @@
 #include "ipc_sender.h"
 #include "nvs_flash.h"
 #include "sdkconfig.h"
-#include <string.h>
 
 #define ESPNOW_WIFI_CHANNEL CONFIG_ESPNOW_CHANNEL
 
@@ -101,20 +101,21 @@ esp_err_t espnow_add_dynamic_peer(const uint8_t *mac, const uint8_t *lmk)
     memcpy(peerInfo.lmk, lmk, 16);
 
     // If peer already exists, we might need to modify it or it will return ESP_ERR_ESPNOW_EXIST.
-    // For simplicity, we just try to add. If it fails because it exists, we could delete and re-add.
+    // For simplicity, we just try to add. If it fails because it exists, we could delete and
+    // re-add.
     esp_err_t err = esp_now_add_peer(&peerInfo);
     if (err == ESP_ERR_ESPNOW_EXIST) {
         esp_now_del_peer(mac);
         err = esp_now_add_peer(&peerInfo);
     }
-    
+
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to dynamically add peer %02X:%02X:%02X:%02X:%02X:%02X: %s",
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to dynamically add peer %02X:%02X:%02X:%02X:%02X:%02X: %s", mac[0],
+                 mac[1], mac[2], mac[3], mac[4], mac[5], esp_err_to_name(err));
     } else {
-        ESP_LOGI(TAG, "✅ Dynamically added peer %02X:%02X:%02X:%02X:%02X:%02X",
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        ESP_LOGI(TAG, "✅ Dynamically added peer %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
+                 mac[2], mac[3], mac[4], mac[5]);
     }
-    
+
     return err;
 }

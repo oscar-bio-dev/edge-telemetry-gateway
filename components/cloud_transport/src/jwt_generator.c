@@ -124,10 +124,10 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     // if (err != ESP_OK) return err;
     memset(raw_sig, 0xAB, 64);  // Stub for HW
 #else
-#include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
+#include "mbedtls/entropy.h"
 
-// ... (we'll replace the block from 127 onwards)
+    // ... (we'll replace the block from 127 onwards)
     ESP_LOGI(TAG, "Signing JWT using Software mbedTLS (Development Key)...");
     mbedtls_pk_context pk;
     mbedtls_entropy_context entropy;
@@ -137,7 +137,8 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     mbedtls_entropy_init(&entropy);
     mbedtls_ctr_drbg_init(&ctr_drbg);
 
-    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, (const unsigned char *) "jwt", 3);
+    int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                    (const unsigned char *)"jwt", 3);
     if (ret != 0) {
         ESP_LOGE(TAG, "Failed to initialize DRBG: -0x%04x", -ret);
         goto cleanup;
@@ -145,7 +146,8 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
 
     size_t key_len = dev_private_key_pem_end - dev_private_key_pem_start;
 
-    ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0, mbedtls_ctr_drbg_random, &ctr_drbg);
+    ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0,
+                               mbedtls_ctr_drbg_random, &ctr_drbg);
     if (ret != 0) {
         ESP_LOGE(TAG, "Failed to parse dev private key: -0x%04x", -ret);
         goto cleanup;

@@ -25,10 +25,10 @@ esp_err_t espnow_receiver_init(void);
 
 /**
  * @brief Dynamically add a new ESP-NOW peer to the Wi-Fi RAM.
- * 
+ *
  * @param mac 6-byte MAC address
  * @param lmk 16-byte Local Master Key
- * @return esp_err_t 
+ * @return esp_err_t
  */
 esp_err_t espnow_add_dynamic_peer(const uint8_t *mac, const uint8_t *lmk);
 

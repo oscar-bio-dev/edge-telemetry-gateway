@@ -1,4 +1,10 @@
-# Edge Telemetry Gateway
+# Edge Telemetry Gateway (Deprecated Archive)
+
+> [!CAUTION]
+> **DEPRECATED**: This dual-chip architecture (ESP32-P4 + C6) is no longer under active development and serves as an **archival/historical reference**.
+> Due to critical hardware defects on the Waveshare P4 board (unresolvable SDIO/UART pin multiplexing conflicts causing firmware lockups on the C6), this project has been migrated to a single-chip **ESP32-S3** architecture.
+>
+> Please use the new repository: [`edge-s3-gateway`](../edge-s3-gateway)
 
 > **Edge-to-Cloud telemetry hub** for ultra-low-power environmental monitoring networks.
 > Receives ESP-NOW bursts from battery-powered sensor nodes and publishes to
@@ -133,12 +139,12 @@ idf.py build
 ../scripts/flash_companion.sh /dev/ttyUSB1
 ```
 
-> [!IMPORTANT]
-> **Flashing the C6 is unreliable via the on-board USB.**
-> You must use an external USB-UART adapter connected to the H7 debug header,
-> with the P4 firmware compiled with `CONFIG_MODE_FLASH_COMPANION=y` to release
-> the shared UART lines. See [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md)
-> for the complete procedure and failure modes.
+> [!WARNING]
+> **HARDWARE DEPRECATION NOTICE (Sep 10, 2026)**
+> The Waveshare ESP32-P4-WIFI6-POE-ETH board has been temporarily abandoned for this project.
+> We discovered a fatal hardware design flaw: the C6 module cannot be flashed once the P4 is programmed. The board lacks an internal USB connection for the C6, the H7 debug header has no BOOT pin exposed, and host-driven strapping via P4 GPIOs is electrically unstable resulting in permanent "soft-bricks" for updates.
+> See [ADR-006](../ESP32-P4-WIFI6-POE-ETH/REPORTE_SITUACION.md) for the complete post-mortem.
+> Development will continue on an **ESP32-S3** board until the official `ESP32-P4X-Function-EV-Board` is delivered.
 
 ## Configuration
 

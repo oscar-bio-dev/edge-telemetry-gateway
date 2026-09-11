@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - Unreleased (Archived)
+
+> **NOTICE**: This repository has been officially archived and deprecated.
+> All future development has moved to the `edge-s3-gateway` project due to unresolvable hardware conflicts on the ESP32-P4+C6 Waveshare board. The code remains here as an architectural and technical reference for dual-chip IPC over UART.
 
 ### Added
 - **ADR-006 — Waveshare Post-Mortem**: Comprehensive post-mortem documenting all hardware limitations, workarounds, and failure modes of the Waveshare ESP32-P4-WIFI6-POE-ETH board's dual-chip architecture. Documents the shared CH344Q USB hub as the root cause of irrecoverable C6 flashing failures. Includes board verdict, GPIO control analysis, and migration path to ESP32-P4X-Function-EV-Board. See [`docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md`](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md).
@@ -27,9 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 - **Host-Driven OTA** (`companion_ota`): Blocked on this board due to unreliable GPIO54/GPIO6 control of C6 EN/BOOT pins. Will be re-evaluated on ESP32-P4X-Function-EV-Board.
+- **Waveshare ESP32-P4-WIFI6-POE-ETH Board**: Temporarily abandoned for gateway development (Sep 10, 2026). Will migrate to ESP32-S3 until ESP32-P4X-Function-EV-Board arrives.
 
 ### Known Issues
-- **C6 USB Flashing Permanently Broken**: After the initial successful flash, all subsequent attempts via `/dev/ttyACM5` fail with `Serial data stream stopped` at the `get_security_info` stage. Root cause: CH344Q USB hub re-enumeration race. No software workaround exists. See [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md).
+- **C6 USB Flashing Permanently Broken (Soft-Brick)**: The board does not have an internal USB connection for the C6. The external H7 debug header lacks a BOOT pin. The P4 host-driven auto-strapping method fails due to unstable pull-ups/electrical isolation. Consequently, the C6 is permanently locked to its current firmware and cannot be updated. See [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md).
 
 ### Fixed (Earlier)
 - **Stack Protection Fault**: Increased `gcp_publisher_task` stack size from 8192 to 16384 bytes to prevent `Guru Meditation Error` (Stack Overflow) caused by MbedTLS ECDSA cryptographic calculations during JWT generation.

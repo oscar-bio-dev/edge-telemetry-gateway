@@ -12,10 +12,10 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
 #include "espnow_receiver.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "ipc_frame.h"
 
 #define UART_PORT_NUM  UART_NUM_1
@@ -32,7 +32,7 @@ static void ipc_rx_task(void *arg)
 {
     uart_event_t event;
     uint8_t *dtmp = (uint8_t *)malloc(UART_BUF_SIZE);
-    
+
     uint8_t frame_buffer[IPC_ENCODED_FRAME_MAX_SIZE];
     size_t frame_idx = 0;
 
@@ -47,16 +47,20 @@ static void ipc_rx_task(void *arg)
                             uint8_t decoded_buf[IPC_RAW_FRAME_MAX_SIZE];
                             size_t decoded_len = cobs_decode(frame_buffer, frame_idx, decoded_buf);
                             if (decoded_len >= IPC_FRAME_MIN_SIZE) {
-                                uint16_t expected_crc = (decoded_buf[decoded_len - 2] << 8) | decoded_buf[decoded_len - 1];
+                                uint16_t expected_crc = (decoded_buf[decoded_len - 2] << 8) |
+                                                        decoded_buf[decoded_len - 1];
                                 uint16_t calc_crc = crc16_ccitt(decoded_buf, decoded_len - 2);
                                 if (calc_crc == expected_crc) {
                                     ipc_header_t *header = (ipc_header_t *)decoded_buf;
                                     if (header->type == IPC_MSG_ADD_PEER) {
-                                        ipc_add_peer_payload_t *payload = (ipc_add_peer_payload_t *)(decoded_buf + sizeof(ipc_header_t));
+                                        ipc_add_peer_payload_t *payload =
+                                            (ipc_add_peer_payload_t *)(decoded_buf +
+                                                                       sizeof(ipc_header_t));
                                         espnow_add_dynamic_peer(payload->mac, payload->lmk);
                                     }
                                 } else {
-                                    ESP_LOGW(TAG, "CRC Error in RX: Calc 0x%04X != Exp 0x%04X", calc_crc, expected_crc);
+                                    ESP_LOGW(TAG, "CRC Error in RX: Calc 0x%04X != Exp 0x%04X",
+                                             calc_crc, expected_crc);
                                 }
                             }
                             frame_idx = 0;

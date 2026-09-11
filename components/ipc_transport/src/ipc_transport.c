@@ -139,12 +139,12 @@ esp_err_t ipc_transport_send(uint8_t type, const uint8_t *data, size_t len)
 
     uint8_t raw_frame[IPC_RAW_FRAME_MAX_SIZE];
     ipc_header_t *header = (ipc_header_t *)raw_frame;
-    
+
     // Fill header
     header->type = type;
-    memset(header->src_mac, 0, 6); // P4 is the sender, doesn't need to spoof a MAC
-    header->seq_num = 0;           // Optional: increment sequence
-    header->rssi = 0;              // N/A for Host -> C6
+    memset(header->src_mac, 0, 6);  // P4 is the sender, doesn't need to spoof a MAC
+    header->seq_num = 0;            // Optional: increment sequence
+    header->rssi = 0;               // N/A for Host -> C6
 
     // Copy payload
     if (data && len > 0) {
@@ -156,14 +156,14 @@ esp_err_t ipc_transport_send(uint8_t type, const uint8_t *data, size_t len)
     uint16_t crc = crc16_ccitt(raw_frame, data_len);
     raw_frame[data_len] = (crc >> 8) & 0xFF;
     raw_frame[data_len + 1] = crc & 0xFF;
-    
+
     size_t frame_len = data_len + 2;
 
     // COBS encode
     uint8_t encoded_frame[IPC_ENCODED_FRAME_MAX_SIZE];
-    encoded_frame[0] = 0x00; // Start sentinel
+    encoded_frame[0] = 0x00;  // Start sentinel
     size_t encoded_len = cobs_encode(raw_frame, frame_len, encoded_frame + 1);
-    encoded_frame[1 + encoded_len] = 0x00; // End sentinel
+    encoded_frame[1 + encoded_len] = 0x00;  // End sentinel
 
     // Send over UART
     int tx_bytes = uart_write_bytes(UART_PORT_NUM, encoded_frame, encoded_len + 2);
@@ -179,9 +179,9 @@ esp_err_t ipc_transport_send_add_peer(const uint8_t *mac, const uint8_t *lmk)
     ipc_add_peer_payload_t payload;
     memcpy(payload.mac, mac, 6);
     memcpy(payload.lmk, lmk, 16);
-    
-    ESP_LOGI(TAG, "Sending IPC_MSG_ADD_PEER to C6 for MAC %02X:%02X:%02X:%02X:%02X:%02X",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-             
+
+    ESP_LOGI(TAG, "Sending IPC_MSG_ADD_PEER to C6 for MAC %02X:%02X:%02X:%02X:%02X:%02X", mac[0],
+             mac[1], mac[2], mac[3], mac[4], mac[5]);
+
     return ipc_transport_send(IPC_MSG_ADD_PEER, (const uint8_t *)&payload, sizeof(payload));
 }
