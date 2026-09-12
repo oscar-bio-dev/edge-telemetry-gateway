@@ -10,8 +10,8 @@
 #include "esp_log.h"
 #include "mbedtls/base64.h"
 #include "mbedtls/build_info.h"
-#include "mbedtls/pk.h"
 #include "mbedtls/md.h"
+#include "mbedtls/pk.h"
 
 // For Mbed TLS version detection
 #include "mbedtls/version.h"
@@ -91,28 +91,46 @@ static esp_err_t parse_asn1_der_signature(const unsigned char *der_sig, size_t d
     return ESP_OK;
 }
 
+#ifndef CONFIG_HW_ECDSA_ENABLE
+static int jwt_f_rng(void *p_rng, unsigned char *output, size_t output_len)
+{
+    (void)p_rng;
+    esp_fill_random(output, output_len);
+    return 0;
+}
+#endif
+
 esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char *out_buffer,
                              size_t buffer_len)
 {
-    time_t now = time(NULL);
-    time_t exp = now + (validity_minutes * 60);
+    // Check if buffer is large enough (JWTs are typically ~300-400 bytes)
+    if (buffer_len < 400) {
+        return ESP_ERR_INVALID_SIZE;
+    }
 
+    // 1. Create the Base64URL encoded header
     const char *header_json = "{\"alg\":\"ES256\",\"typ\":\"JWT\"}";
-    char payload_json[128];
-    snprintf(payload_json, sizeof(payload_json), "{\"iat\":%lld,\"exp\":%lld,\"aud\":\"%s\"}",
-             (long long)now, (long long)exp, project_id);
-
-    char header_b64[64] = {0};
-    char payload_b64[200] = {0};
-
+    char header_b64[100] = {0};
     base64url_encode((const unsigned char *)header_json, strlen(header_json), header_b64,
                      sizeof(header_b64));
+
+    // 2. Create the payload
+    uint32_t iat = time(NULL);
+    uint32_t exp = iat + (validity_minutes * 60);
+
+    char payload_json[200];
+    snprintf(payload_json, sizeof(payload_json),
+             "{\"aud\":\"%s\",\"iat\":%" PRIu32 ",\"exp\":%" PRIu32 "}", project_id, iat, exp);
+
+    char payload_b64[250] = {0};
     base64url_encode((const unsigned char *)payload_json, strlen(payload_json), payload_b64,
                      sizeof(payload_b64));
 
-    char unsigned_jwt[300];
+    // 3. Create the unsigned JWT (Header + "." + Payload)
+    char unsigned_jwt[400];
     snprintf(unsigned_jwt, sizeof(unsigned_jwt), "%s.%s", header_b64, payload_b64);
 
+    // 4. Hash the unsigned JWT (SHA-256)
     unsigned char hash[32];
     mbedtls_md_context_t md_ctx;
     mbedtls_md_init(&md_ctx);
@@ -130,14 +148,6 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     // if (err != ESP_OK) return err;
     memset(raw_sig, 0xAB, 64);  // Stub for HW
 #else
-
-static int jwt_f_rng(void *p_rng, unsigned char *output, size_t output_len)
-{
-    (void)p_rng;
-    esp_fill_random(output, output_len);
-    return 0;
-}
-
     ESP_LOGI(TAG, "Signing JWT using Software mbedTLS (Development Key)...");
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
@@ -145,8 +155,8 @@ static int jwt_f_rng(void *p_rng, unsigned char *output, size_t output_len)
     size_t key_len = dev_private_key_pem_end - dev_private_key_pem_start;
 
 #if defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER >= 0x03000000)
-    int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0,
-                                   jwt_f_rng, NULL);
+    int ret =
+        mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0, jwt_f_rng, NULL);
 #else
     int ret = mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0);
 #endif
@@ -162,8 +172,8 @@ static int jwt_f_rng(void *p_rng, unsigned char *output, size_t output_len)
     ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, sizeof(der_sig),
                           &der_sig_len, jwt_f_rng, NULL);
 #else
-    ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig,
-                          &der_sig_len, jwt_f_rng, NULL);
+    ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, &der_sig_len,
+                          jwt_f_rng, NULL);
 #endif
 
     if (ret != 0) {
