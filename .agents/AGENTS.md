@@ -31,6 +31,7 @@ Este documento representa la **Capa 1 (Política Global Ejecutiva)**. Todo repos
 - Cada componente MUST tener: `include/*.h` (API pública), `*.c` (implementación), `CMakeLists.txt` y tests unitarios.
 - APIs entre componentes MUST ser explícitas y desacopladas.
 - **Topología Segregada (Gateway / Air-Gap):** Para aplicaciones conectadas a la nube, el nodo sensor MUST utilizar comunicaciones de radio ultracortas de milisegundos (ej. ESP-NOW) hacia un Gateway dedicado. Las pesadas rutinas criptográficas (TLS/JWT/TCP-IP) se delegan a un SoC anclado a la pared (ej. ESP32 + Ethernet WT32-ETH01).
+- **Regla de Inmutabilidad del C6 Companion ("Si funciona, no se toca"):** El firmware del ESP32-C6 (directorio `companion/`) actúa como un proxy pasivo. Dado el alto riesgo y fricción manual para flashearlo, su código base está **congelado**. Queda estrictamente prohibido (MUST NOT) modificar, refactorizar o alterar este código a menos que sea para resolver un bug crítico o realizar una mejora arquitectónica mayor previamente aprobada en un ADR.
 
 ## 4) Concurrencia, Núcleos y Tiempo Real
 - En dual-core, tareas críticas MUST crearse con `xTaskCreatePinnedToCore()`.

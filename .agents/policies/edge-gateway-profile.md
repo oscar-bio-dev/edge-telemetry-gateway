@@ -93,6 +93,7 @@ El código criptográfico (JWT, TLS) MUST compilar contra **Mbed TLS 2.x** (ESP-
 - **Radio** (WiFi, BLE, 802.15.4) MUST ejecutarse en el Companion C6.
 - **IPC** entre P4 y C6 MUST usar tramas COBS/CRC16 sobre UART, no SPI/SDIO.
 - **OTA del Companion**: Se realizará desde el Host vía `esp-serial-flasher` (futuro).
+- **Inmutabilidad del Companion**: El código en la carpeta `companion/` se considera **estable y congelado**. Debido a la complejidad manual del flasheo, no debe modificarse bajo ninguna circunstancia para refactorizaciones menores o mejoras triviales. "Si funciona, no se toca".
 
 ## §5. Pinout Map — Waveshare ESP32-P4-WIFI6-POE-ETH
 

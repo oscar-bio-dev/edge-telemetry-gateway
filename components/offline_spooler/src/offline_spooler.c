@@ -6,6 +6,7 @@
 #include "offline_spooler.h"
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "crc16.h"
 #include "esp_log.h"
 #include "storage_manager.h"
@@ -26,6 +27,9 @@ esp_err_t offline_spooler_init(void)
     }
 
     ESP_LOGI(TAG, "Initializing Offline Spooler...");
+
+    // Ensure the spool directory exists
+    mkdir("/sdcard/spool", 0755);
 
     // Attempt to open the file to ensure the path exists and is writable
     FILE *f = fopen(SPOOL_FILE_PATH, "ab");

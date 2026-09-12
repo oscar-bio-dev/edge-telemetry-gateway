@@ -1,25 +1,13 @@
-# Edge Telemetry Gateway (Deprecated Archive)
-
-> [!CAUTION]
-> **DEPRECATED**: This dual-chip architecture (ESP32-P4 + C6) is no longer under active development and serves as an **archival/historical reference**.
-> Due to critical hardware defects on the Waveshare P4 board (unresolvable SDIO/UART pin multiplexing conflicts causing firmware lockups on the C6), this project has been migrated to a single-chip **ESP32-S3** architecture.
->
-> Please use the new repository: [`esp32s3-edge-gateway`](../esp32s3-edge-gateway)
+# Edge Telemetry Gateway
 
 > **Edge-to-Cloud telemetry hub** for ultra-low-power environmental monitoring networks.
 > Receives ESP-NOW bursts from battery-powered sensor nodes and publishes to
 > Google Cloud Pub/Sub via HTTPS mTLS with JWT/ECDSA hardware-accelerated authentication.
 
-> [!WARNING]
+> [!NOTE]
 > **Board Status: Waveshare ESP32-P4-WIFI6-POE-ETH**
-> This repository was developed on the Waveshare ESP32-P4-WIFI6-POE-ETH board.
-> Development has been **frozen** due to irrecoverable C6 flashing instability
-> caused by the board's shared CH344Q USB hub architecture. See
-> [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md) for the
-> full post-mortem. Active development has moved to
-> [`esp32s3-edge-gateway`](https://github.com/oscar-bio-dev/esp32s3-edge-gateway)
-> (ESP32-S3 + W5500). The P4 firmware will be revived when the
-> ESP32-P4X-Function-EV-Board arrives (~Q1 2027).
+> This repository is **actively developed** on the Waveshare ESP32-P4-WIFI6-POE-ETH board.
+> Previous issues with C6 flashing have been resolved by using an external TTL adapter (DFRobot RainbowLink V2, CH343 chipset) and freezing the P4 bootloader. See [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-hardware-guide.md) for the full history and flashing procedure.
 
 ---
 
@@ -36,14 +24,14 @@
 
 > [!CAUTION]
 > The Waveshare ESP32-P4-WIFI6-POE-ETH has **critical limitations** for
-> dual-chip development. Read [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md)
+> dual-chip development. Read [ADR-006](docs/adr/006-waveshare-p4-wifi6-poe-eth-hardware-guide.md)
 > before investing time in this board.
 
 | Issue | Severity | Details |
 |---|---|---|
-| C6 USB flashing via shared CH344Q hub | 🔴 **Critical** | `esptool` fails non-deterministically with `Serial data stream stopped`. The C6's USB-Serial/JTAG peripheral shares a quad-port USB hub with the P4. Hub re-enumeration races corrupt the SLIP protocol. |
-| P4 → C6 EN/BOOT GPIO control | 🟡 **Major** | GPIO54 (EN) and GPIO6 (BOOT) do not reliably toggle the C6's strapping pins. Host-Driven OTA via `esp-serial-flasher` is not feasible. |
-| UART collision on shared SDIO traces | 🟡 **Major** | P4 GPIO14/15 (IPC UART) share PCB traces with C6 GPIO20/21. P4 must be frozen before flashing C6 via H7 header. |
+| C6 Flashing via External Adapter | 🟢 **Resolved (Manual Workaround)** | The board has no direct USB-to-UART for the C6. Flashing requires an external CH343 TTL adapter and manually holding the P4 BOOT button to prevent UART collisions. See Quick Start. |
+| P4 → C6 EN/BOOT GPIO control | 🟡 **Major** | GPIO54 (EN) and GPIO6 (BOOT) do not reliably toggle the C6's strapping pins. Host-Driven OTA via `esp-serial-flasher` is currently not feasible. |
+| UART collision on shared SDIO traces | 🟢 **Resolved** | P4 GPIO14/15 (IPC UART) share PCB traces with C6 GPIO20/21. Resolved during flashing by keeping P4 in ROM bootloader. |
 | ESP32-P4 ECO2 rev 1.3 silicon | 🟢 **Resolved** | Requires `CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y` in `sdkconfig.defaults`. See [ADR-003](docs/adr/003-esp32p4-eco2-rev13-workarounds.md). |
 
 ## System Architecture
@@ -135,16 +123,30 @@ idf.py build flash monitor
 cd companion/
 idf.py set-target esp32c6
 idf.py build
-# Flash via H7 debug header (default port /dev/ttyUSB1)
-../scripts/flash_companion.sh /dev/ttyUSB1
 ```
 
-> [!WARNING]
-> **HARDWARE DEPRECATION NOTICE (Sep 10, 2026)**
-> The Waveshare ESP32-P4-WIFI6-POE-ETH board has been temporarily abandoned for this project.
-> We discovered a fatal hardware design flaw: the C6 module cannot be flashed once the P4 is programmed. The board lacks an internal USB connection for the C6, the H7 debug header has no BOOT pin exposed, and host-driven strapping via P4 GPIOs is electrically unstable resulting in permanent "soft-bricks" for updates.
-> See [ADR-006](../ESP32-P4-WIFI6-POE-ETH/REPORTE_SITUACION.md) for the complete post-mortem.
-> Development will continue on an **ESP32-S3** board until the official `ESP32-P4X-Function-EV-Board` is delivered.
+### Flashing the C6 Companion
+Because the C6 shares UART traces with the P4, you **must** use an external TTL adapter (e.g., DFRobot RainbowLink V2) and prevent the P4 from booting during the flash process.
+
+1. Connect the TTL adapter to the `ESP32-C6 UART Terminal`:
+   - `TX` ➜ `RX`
+   - `RX` ➜ `TX`
+   - `GND` ➜ `GND`
+   - Short `IO9` to `GND`
+2. **Press and hold the P4 BOOT button** on the board.
+3. Power on the board (or press `RST`) while holding BOOT. The P4 is now frozen.
+4. Flash the C6 using `esptool` (adjust `/dev/ttyACM5` as needed):
+
+```bash
+cd companion
+python -m esptool --chip esp32c6 -p /dev/ttyACM5 -b 460800 \
+  --before no_reset --after no_reset write_flash \
+  --flash_mode dio --flash_freq 80m --flash_size 2MB \
+  0x0 build/bootloader/bootloader.bin \
+  0x8000 build/partition_table/partition-table.bin \
+  0x10000 build/edge-companion-c6.bin
+```
+5. Remove the `IO9` to `GND` jumper and press `RST` to boot both chips normally.
 
 ## Configuration
 
@@ -210,7 +212,7 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 | [003](docs/adr/003-esp32p4-eco2-rev13-workarounds.md) | ESP32-P4 ECO2 Rev 1.3 Silicon Errata Workarounds | Accepted |
 | [004](docs/adr/004-mbedtls-cross-version-compat.md) | MbedTLS Cross-Version Compatibility | Accepted |
 | [005](docs/adr/005-microsd-vfs-and-degraded-mode.md) | MicroSD SDMMC VFS & Degraded Mode | Accepted |
-| [006](docs/adr/006-waveshare-p4-wifi6-poe-eth-post-mortem.md) | **Waveshare P4-WIFI6-POE-ETH Post-Mortem** | Accepted |
+| [006](docs/adr/006-waveshare-p4-wifi6-poe-eth-hardware-guide.md) | **Waveshare P4-WIFI6-POE-ETH Hardware Guide** | Accepted |
 
 ## Security & Crypto
 

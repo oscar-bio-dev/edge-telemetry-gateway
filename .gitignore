@@ -22,6 +22,9 @@ companion/managed_components/
 # ── IDE / Editor ────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+.clangd
+.cache/
+compile_commands.json
 # NOTE: .agents/ is NOT ignored — governance policies MUST be version-controlled
 *.swp
 *.swo
