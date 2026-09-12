@@ -92,12 +92,14 @@ static esp_err_t parse_asn1_der_signature(const unsigned char *der_sig, size_t d
 }
 
 #ifndef CONFIG_HW_ECDSA_ENABLE
+#if !defined(MBEDTLS_VERSION_NUMBER) || (MBEDTLS_VERSION_NUMBER < 0x04000000)
 static int jwt_f_rng(void *p_rng, unsigned char *output, size_t output_len)
 {
     (void)p_rng;
     esp_fill_random(output, output_len);
     return 0;
 }
+#endif
 #endif
 
 esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char *out_buffer,
@@ -154,7 +156,8 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
 
     size_t key_len = dev_private_key_pem_end - dev_private_key_pem_start;
 
-#if defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER >= 0x03000000)
+#if defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER >= 0x03000000) && \
+    (MBEDTLS_VERSION_NUMBER < 0x04000000)
     int ret =
         mbedtls_pk_parse_key(&pk, dev_private_key_pem_start, key_len, NULL, 0, jwt_f_rng, NULL);
 #else
@@ -168,7 +171,10 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     unsigned char der_sig[MBEDTLS_PK_SIGNATURE_MAX_SIZE];
     size_t der_sig_len = 0;
 
-#if defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER >= 0x03000000)
+#if defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER >= 0x04000000)
+    ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, sizeof(der_sig),
+                          &der_sig_len);
+#elif defined(MBEDTLS_VERSION_NUMBER) && (MBEDTLS_VERSION_NUMBER >= 0x03000000)
     ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, sizeof(hash), der_sig, sizeof(der_sig),
                           &der_sig_len, jwt_f_rng, NULL);
 #else
