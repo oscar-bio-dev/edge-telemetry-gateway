@@ -81,29 +81,30 @@ edge-telemetry-gateway/
 ├── components/
 │   ├── ipc_transport/                ← UART RX + COBS decode (Core 1)
 │   ├── telemetry_decoder/            ← Nanopb static decode
-│   ├── telemetry_buffer/             ← Ring buffer (zero-alloc, soon to be SPIFFS-backed)
+│   ├── telemetry_buffer/             ← Ring buffer (zero-alloc)
+│   ├── offline_spooler/              ← SD Card spooler for network resilience
+│   ├── storage_manager/              ← MicroSD/FATFS initialization
 │   ├── cloud_transport/              ← HTTPS mTLS + JWT/ECDSA → Backend
 │   ├── eth_manager/                  ← EMAC + IP101GRI RMII + lwIP
+│   ├── ip101/                        ← Custom PHY driver for IP101GRI
 │   ├── companion_ota/                ← Host-Driven OTA via esp-serial-flasher
 │   ├── cli_manager/                  ← ESP Console CLI for peer provisioning
 │   └── diagnostics/                  ← Health checks, companion watchdog
 │
+├── shared_components/                ← Components shared between Host and Companion
+│   ├── cobs_crc/                     ← COBS framing & CRC16 logic
+│   ├── nanopb/                       ← Nanopb library
+│   └── proto/                        ← .proto files and generated .pb.c/.pb.h
+│
 ├── companion/
 │   ├── CMakeLists.txt                ← Companion project (target: esp32c6)
 │   ├── main/                         ← ESP-NOW Smart Proxy boot
-│   ├── flash_c6.sh                   ← Flash C6 via USB (unreliable, see ADR-006)
-│   ├── flash_c6_slow.sh              ← Baud-sweep flash script (9600–74880)
 │   └── components/
 │       ├── espnow_receiver/          ← Wi-Fi STA + ESP-NOW RX
 │       ├── ipc_sender/               ← COBS encode + UART TX
 │       └── heartbeat/                ← Alive signal to P4
 │
-├── shared_components/
-│   ├── cobs_crc/                     ← COBS codec + CRC16-CCITT (shared)
-│   ├── proto/telemetry.proto         ← Single Source of Truth Protobuf schema
-│   └── proto/gateway_health.proto    ← Diagnostics & Degraded Mode Protobuf schema
-├── docs/adr/                         ← Architecture Decision Records
-└── scripts/flash_companion.sh        ← Flash C6 via H7 debug header
+└── docs/adr/                         ← Architecture Decision Records
 ```
 
 Both projects reference `shared_components/` via `EXTRA_COMPONENT_DIRS` in their
