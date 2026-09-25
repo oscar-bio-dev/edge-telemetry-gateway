@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New enums: `NodeStatus` (MONITORING/CALIBRATING/SELF_TESTING/HARDWARE_ERROR) and `Command` (CMD_RUN_SELF_TEST/CMD_REBOOT).
   - `gateway_headers.h`: Canonical header byte definitions for ESP-NOW (0x10-0x21) and IPC (0x30-0x32) protocols.
   - Nanopb `.pb.c`/`.pb.h` regenerated with `nanopb-0.4.9.1`.
+- **Bidirectional Protocol (Fase 2 — Orquestador P4):**
+  - `ipc_transport`: Dynamic routing based on header byte (`0x10` Telemetry, `0x11` Diagnostic).
+  - `epoch_sync_task`: Automatic time propagation to C6 via `IPC_HDR_SYNC_EPOCH` (0x30) every 60s.
+  - `cloud_transport`: Implemented asynchronous `gcp_subscriber_task` to pull cloud commands and inject them to C6 via `IPC_HDR_CMD_INJECT` (0x31).
+- **Bidirectional Protocol (Fase 3 — Companion C6):**
+  - Complete rewrite of C6 firmware (`v0.2.0`) to support ACK-First, Forward-Later architecture.
+  - `mailbox`: Static RAM pending command store with Epoch-based TTL expiration.
+  - Autonomous `GatewayAck` transmission within 6ms, solving the 200ms node wait-window limit.
 
 ## [1.0.0-rc.1] - 2026-09-12
 
