@@ -60,7 +60,7 @@
 
 1. **Sensor nodes** (ESP32, `room-monitoring` project) wake from Deep Sleep, sample BME688/SCD41/BMV080, encode telemetry as **Nanopb Protobuf** (`EnvironmentalData`, ~50 bytes), and fire a millisecond ESP-NOW broadcast burst.
 
-2. **C6 Companion** receives the ESP-NOW frame, wraps it in a **COBS-encoded IPC frame** (10-byte header: `type | src_mac[6] | seq_num | rssi` + Protobuf payload + CRC16-CCITT), and transmits over **UART at 460800 bps** through the board's internal SDIO D0/D1 traces (P4 GPIO14 ← C6 GPIO20, P4 GPIO15 → C6 GPIO21).
+2. **C6 Companion** receives the ESP-NOW frame and **instantly transmits an autonomous `GatewayAck`** (including cached Epoch and pending Mailbox commands) back to the node within <10ms to satisfy strict Deep Sleep windows. Then, it wraps the telemetry in a **COBS-encoded IPC frame** (10-byte header: `type | src_mac[6] | seq_num | rssi` + Protobuf payload + CRC16-CCITT) and transmits it over **UART at 460800 bps** through the board's internal SDIO D0/D1 traces (P4 GPIO14 ← C6 GPIO20, P4 GPIO15 → C6 GPIO21).
 
 3. **P4 Host** decodes the COBS frame on Core 1 (`ipc_ingest_task`), verifies CRC16, decodes Protobuf with Nanopb (zero-allocation), injects the node's MAC as the `device_id`, and enqueues the sample into a static ring buffer.
 
@@ -185,7 +185,7 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 1. Flash the ESP32-C6 (Companion) while keeping the P4 physical UART lines released.
 2. Obtain the base MAC address from the C6 logs (e.g., `B0:A6:04:9A:15:F8`).
 3. Inject the C6 MAC address, PMK, and LMK into the Sensor Node (`room-monitoring`) via Kconfig for secure CCMP-128 peer-to-peer encryption.
-4. The C6 receives the sensor broadcast, encapsulates it via COBS/CRC16, and sends it to the P4 Host for immediate uplink to the Cloud via Ethernet.
+4. The C6 receives the sensor broadcast, answers instantly with a `GatewayAck` containing time sync and pending commands, then encapsulates the telemetry via COBS/CRC16 and sends it to the P4 Host for immediate uplink to the Cloud via Ethernet.
 
 ## Component Status
 
@@ -196,7 +196,7 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 | IPC frame protocol | ✅ Defined | 8 message types, 10B header, COBS+CRC16 |
 | IPC transport (UART) | ✅ Implemented | Core 1 ingest task, COBS TX/RX |
 | ESP-NOW receiver (C6) | ✅ Implemented | Wi-Fi STA + broadcast RX + MAC extraction |
-| Bidirectional Protocol | 🔄 In Progress | Header-based routing (0x10-0x31), GatewayAck, Downlink Spooling |
+| Bidirectional Protocol | ✅ Implemented | Header-based routing (0x10-0x31), Edge-ACK, Downlink Spooling |
 | Ethernet manager | ✅ Implemented | EMAC + IP101GRI driver configured |
 | Cloud transport | ✅ Implemented | HTTPS mTLS to GCP Pub/Sub + JWT/ECDSA Auth |
 | Storage & Spooler | ✅ Implemented | MicroSD (SDMMC VFS) Store-and-Forward |
