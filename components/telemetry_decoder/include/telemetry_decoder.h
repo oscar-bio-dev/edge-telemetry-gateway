@@ -33,6 +33,17 @@ esp_err_t telemetry_decoder_init(void);
 esp_err_t telemetry_decode_payload(const uint8_t *raw_pb, size_t len, const uint8_t *src_mac,
                                    telemetry_TelemetryPayload *out_data);
 
+/**
+ * @brief Decodes a raw Protobuf byte array into a DiagnosticReport struct.
+ *
+ * @param raw_pb Pointer to the Protobuf byte array
+ * @param len Length of the array
+ * @param out_data Pointer to the struct to populate
+ * @return esp_err_t ESP_OK on success, ESP_FAIL on decode error
+ */
+esp_err_t telemetry_decode_diagnostic(const uint8_t *raw_pb, size_t len,
+                                      telemetry_DiagnosticReport *out_data);
+
 #ifdef __cplusplus
 }
 #endif

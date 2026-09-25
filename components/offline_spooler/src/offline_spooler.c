@@ -9,12 +9,16 @@
 #include <sys/stat.h>
 #include "crc16.h"
 #include "esp_log.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "storage_manager.h"
 
 static const char *TAG = "offline_spooler";
 
 #define SPOOL_FILE_PATH "/sdcard/spool/offline_buffer.dat"
 #define MAGIC_BYTES     0xEDCE
+
+static uint32_t s_read_cursor = 0;
 
 // Frame structure:
 // [Magic: 2B] [Length: 2B] [Payload: N Bytes] [CRC16: 2B]
@@ -27,6 +31,12 @@ esp_err_t offline_spooler_init(void)
     }
 
     ESP_LOGI(TAG, "Initializing Offline Spooler...");
+
+    nvs_handle_t nvs;
+    if (nvs_open("spooler", NVS_READWRITE, &nvs) == ESP_OK) {
+        nvs_get_u32(nvs, "cursor", &s_read_cursor);
+        nvs_close(nvs);
+    }
 
     // Ensure the spool directory exists
     mkdir("/sdcard/spool", 0755);
@@ -89,15 +99,75 @@ esp_err_t offline_spooler_append(const uint8_t *pb_data, uint16_t length)
     return ESP_OK;
 }
 
-esp_err_t offline_spooler_pop(uint8_t **out_buffer, uint16_t max_items, uint16_t *out_count)
+esp_err_t offline_spooler_pop(uint8_t *out_buffer, uint16_t max_len, uint16_t *out_len)
 {
     if (storage_manager_is_degraded()) {
         return ESP_FAIL;
     }
 
-    // Implementation of pop requires read cursors and compaction/truncation strategies.
-    // For this Phase, we are focusing on Append-Only integrity, so popping is a stub.
+    FILE *f = fopen(SPOOL_FILE_PATH, "rb");
+    if (f == NULL) {
+        return ESP_ERR_NOT_FOUND;
+    }
 
-    *out_count = 0;
-    return ESP_ERR_NOT_FOUND;
+    fseek(f, s_read_cursor, SEEK_SET);
+
+    uint16_t magic = 0;
+    if (fread(&magic, 1, sizeof(magic), f) != sizeof(magic)) {
+        fclose(f);
+        return ESP_ERR_NOT_FOUND;  // EOF
+    }
+
+    if (magic != MAGIC_BYTES) {
+        fclose(f);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    uint8_t len_buf[2];
+    if (fread(len_buf, 1, 2, f) != 2) {
+        fclose(f);
+        return ESP_FAIL;
+    }
+
+    uint16_t length = len_buf[0] | (len_buf[1] << 8);
+    if (length > max_len) {
+        fclose(f);
+        return ESP_ERR_NO_MEM;
+    }
+
+    if (fread(out_buffer, 1, length, f) != length) {
+        fclose(f);
+        return ESP_FAIL;
+    }
+
+    uint16_t crc = 0;
+    if (fread(&crc, 1, sizeof(crc), f) != sizeof(crc)) {
+        fclose(f);
+        return ESP_FAIL;
+    }
+
+    uint8_t crc_calc_buf[2 + length];
+    crc_calc_buf[0] = len_buf[0];
+    crc_calc_buf[1] = len_buf[1];
+    memcpy(&crc_calc_buf[2], out_buffer, length);
+
+    uint16_t expected_crc = crc16_ccitt(crc_calc_buf, sizeof(crc_calc_buf));
+    if (crc != expected_crc) {
+        ESP_LOGE(TAG, "Spooler CRC mismatch");
+        fclose(f);
+        return ESP_ERR_INVALID_CRC;
+    }
+
+    s_read_cursor = ftell(f);
+    fclose(f);
+
+    nvs_handle_t nvs;
+    if (nvs_open("spooler", NVS_READWRITE, &nvs) == ESP_OK) {
+        nvs_set_u32(nvs, "cursor", s_read_cursor);
+        nvs_commit(nvs);
+        nvs_close(nvs);
+    }
+
+    *out_len = length;
+    return ESP_OK;
 }

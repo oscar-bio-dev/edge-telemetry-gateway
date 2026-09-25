@@ -49,6 +49,7 @@ static void refresh_jwt_if_needed(void)
 #include "esp_mac.h"
 #include "esp_random.h"
 #include "mbedtls/base64.h"
+#include "pb_decode.h"
 #include "pb_encode.h"
 #include "telemetry.pb.h"
 
@@ -150,8 +151,14 @@ static void gcp_publisher_task(void *arg)
                 ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
                 s_is_online = false;
             }
-            // En producción aquí guardaríamos al spooler. Por ahora, solo logueamos la falla.
-            // offline_spooler_append(pb_buffer, stream.bytes_written);
+            /* Spool all payloads in this failed batch */
+            for (size_t i = 0; i < count; i++) {
+                uint8_t pb_buffer[256];
+                pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
+                if (pb_encode(&stream, telemetry_TelemetryPayload_fields, &payloads[i])) {
+                    offline_spooler_append(pb_buffer, stream.bytes_written);
+                }
+            }
         }
     }
 }
@@ -170,32 +177,59 @@ static void gcp_subscriber_task(void *arg)
             continue;
         refresh_jwt_if_needed();
 
-        // En el futuro, aquí se hace el HTTP GET a la suscripción Pull de Pub/Sub
-        // esp_http_client_config_t config = { .url = CONFIG_GCP_PUBSUB_SUB_ENDPOINT ... }
+        // TODO(Backend): Replace this mock with a real HTTP GET to the GCP Pub/Sub Pull
+        // Subscription. We are keeping this as a mock for now until oscar-bio-dev creates the
+        // command topic.
 
-        // Para esta Fase 2, simularemos la llegada de un comando CMD_RUN_SELF_TEST
-        // si recibimos una señal interna o para un MAC específico (Mocking).
-        // La estructura del payload para el C6 (IPC_HDR_CMD_INJECT) es:
-        // [MAC: 6 bytes] + [GatewayAck Protobuf: N bytes]
-
+        // Mocked injection for Phase 2: Send CMD_RUN_SELF_TEST
+        // The IPC_HDR_CMD_INJECT format for C6 Mailbox is:
+        // [MAC: 6 bytes] + [Command Enum: 1 byte]
         /*
         uint8_t target_mac[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
-        telemetry_GatewayAck ack_cmd = telemetry_GatewayAck_init_default;
-        ack_cmd.has_command = true;
-        ack_cmd.command = telemetry_Command_CMD_RUN_SELF_TEST;
-
-        uint8_t pb_buffer[32];
-        pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
-        pb_encode(&stream, telemetry_GatewayAck_fields, &ack_cmd);
-
-        uint8_t ipc_payload[38];
+        uint8_t ipc_payload[7];
         memcpy(ipc_payload, target_mac, 6);
-        memcpy(ipc_payload + 6, pb_buffer, stream.bytes_written);
+        ipc_payload[6] = (uint8_t)telemetry_Command_CMD_RUN_SELF_TEST; // Raw enum, no protobuf!
 
-        ipc_transport_send(IPC_HDR_CMD_INJECT, ipc_payload, 6 + stream.bytes_written);
+        ipc_transport_send(IPC_HDR_CMD_INJECT, ipc_payload, sizeof(ipc_payload));
         ESP_LOGI(TAG, "Downlink Spooled: Enqueued CMD_RUN_SELF_TEST to C6 for %02X:%02X...",
-        target_mac[0], target_mac[1]);
+                 target_mac[0], target_mac[1]);
         */
+    }
+}
+
+// ============================================================================
+// Offline Spooler Rehydration
+// ============================================================================
+static void offline_rehydration_task(void *arg)
+{
+    ESP_LOGI(TAG, "Offline Rehydration Task started");
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+
+        if (!s_is_online) {
+            continue;
+        }
+
+        uint8_t pb_buffer[256];
+        uint16_t pb_len = 0;
+
+        // Try to pop one item from the spooler
+        if (offline_spooler_pop(pb_buffer, sizeof(pb_buffer), &pb_len) == ESP_OK) {
+            telemetry_TelemetryPayload payload = telemetry_TelemetryPayload_init_default;
+            pb_istream_t stream = pb_istream_from_buffer(pb_buffer, pb_len);
+
+            if (pb_decode(&stream, telemetry_TelemetryPayload_fields, &payload)) {
+                ESP_LOGI(TAG, "Rehydrating 1 spooled payload for %s", payload.device_id);
+                // Push to ring buffer (will block or drop based on implementation,
+                // but since we are online, the publisher will drain it quickly).
+                while (telemetry_buffer_push(&payload) != ESP_OK) {
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    if (!s_is_online)
+                        break;
+                }
+            }
+        }
     }
 }
 
@@ -209,11 +243,13 @@ esp_err_t cloud_transport_init(void)
     // Create the subscriber task for Downlink Commands
     xTaskCreatePinnedToCore(gcp_subscriber_task, "gcp_subscriber", 8192, NULL, 4, NULL, 0);
 
+    // Create the rehydration task
+    xTaskCreatePinnedToCore(offline_rehydration_task, "gcp_rehydrate", 4096, NULL, 3, NULL, 0);
+
     return ESP_OK;
 }
 
 bool cloud_transport_is_connected(void)
 {
-    // Return true if HTTP client was able to connect recently
-    return true;
+    return s_is_online;
 }

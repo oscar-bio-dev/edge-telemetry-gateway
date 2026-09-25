@@ -34,12 +34,12 @@ esp_err_t offline_spooler_append(const uint8_t *pb_data, uint16_t length);
  * Note: For simplicity in this implementation, this reads the entire payload.
  * A full implementation would manage a read-pointer cursor.
  *
- * @param out_buffer Pre-allocated array of pointers to hold the read Protobufs.
- * @param max_items Max number of items to pop.
- * @param out_count Actual number of items popped.
- * @return ESP_OK on success, ESP_ERR_NOT_FOUND if empty.
+ * @param out_buffer Pre-allocated buffer to hold the read Protobuf payload.
+ * @param max_len Maximum length of out_buffer.
+ * @param out_len Actual length of the payload popped.
+ * @return ESP_OK on success, ESP_ERR_NOT_FOUND if empty or end of file reached.
  */
-esp_err_t offline_spooler_pop(uint8_t **out_buffer, uint16_t max_items, uint16_t *out_count);
+esp_err_t offline_spooler_pop(uint8_t *out_buffer, uint16_t max_len, uint16_t *out_len);
 
 #ifdef __cplusplus
 }

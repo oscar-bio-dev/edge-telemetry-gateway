@@ -88,13 +88,26 @@ static void ipc_ingest_task(void *arg)
                                     ESP_LOGE(TAG, "Failed to decode telemetry payload");
                                 }
                             } else if (espnow_hdr == ESPNOW_HDR_DIAGNOSTIC) {
-                                ESP_LOGI(TAG,
-                                         "Received Diagnostic Report from MAC "
-                                         "%02X:%02X:%02X:%02X:%02X:%02X",
-                                         header->src_mac[0], header->src_mac[1], header->src_mac[2],
-                                         header->src_mac[3], header->src_mac[4],
-                                         header->src_mac[5]);
-                                // In the future, push to a diagnostic buffer
+                                telemetry_DiagnosticReport diag;
+                                if (telemetry_decode_diagnostic(pb_data, pb_len, &diag) == ESP_OK) {
+                                    ESP_LOGI(
+                                        TAG, "Diagnostic Report from %02X:%02X:%02X:%02X:%02X:%02X",
+                                        header->src_mac[0], header->src_mac[1], header->src_mac[2],
+                                        header->src_mac[3], header->src_mac[4], header->src_mac[5]);
+                                    if (diag.has_system_error_bitmask &&
+                                        diag.system_error_bitmask != 0) {
+                                        ESP_LOGE(TAG, "NODE HARDWARE FAULT! Mask: 0x%08X",
+                                                 (unsigned int)diag.system_error_bitmask);
+                                    }
+                                    if (diag.has_scd41_passed && !diag.scd41_passed)
+                                        ESP_LOGW(TAG, "SCD41 init failed");
+                                    if (diag.has_bme688_passed && !diag.bme688_passed)
+                                        ESP_LOGW(TAG, "BME688 init failed");
+                                    if (diag.has_bmv080_passed && !diag.bmv080_passed)
+                                        ESP_LOGW(TAG, "BMV080 init failed");
+                                } else {
+                                    ESP_LOGE(TAG, "Failed to decode diagnostic report");
+                                }
                             } else {
                                 ESP_LOGW(TAG, "Unknown ESP-NOW header: 0x%02X", espnow_hdr);
                             }

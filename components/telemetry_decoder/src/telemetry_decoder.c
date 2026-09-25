@@ -8,6 +8,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_rom_md5.h"
 #include "pb_decode.h"
 
 static const char *TAG = "telemetry_decoder";
@@ -46,19 +47,51 @@ esp_err_t telemetry_decode_payload(const uint8_t *raw_pb, size_t len, const uint
                  src_mac[3], src_mac[4], src_mac[5]);
     }
 
-    // Inject unique event_id (UUID v4) to guarantee backend idempotency
-    uint8_t rnd[16];
-    esp_fill_random(rnd, sizeof(rnd));
-    rnd[6] = (rnd[6] & 0x0f) | 0x40;  // Version 4
-    rnd[8] = (rnd[8] & 0x3f) | 0x80;  // Variant 1
+    // Generate a deterministic event_id (UUID v4) based on unique telemetry fields
+    // This guarantees idempotency in the backend during SD replays or ESP-NOW retries.
+    uint8_t hash[16];
+    md5_context_t ctx;
+    esp_rom_md5_init(&ctx);
+    if (src_mac != NULL) {
+        esp_rom_md5_update(&ctx, src_mac, 6);
+    }
+    esp_rom_md5_update(&ctx, (const uint8_t *)&out_data->node_sequence,
+                       sizeof(out_data->node_sequence));
+    if (out_data->has_sleep_cycles) {
+        esp_rom_md5_update(&ctx, (const uint8_t *)&out_data->sleep_cycles,
+                           sizeof(out_data->sleep_cycles));
+    }
+    esp_rom_md5_final(hash, &ctx);
+
+    hash[6] = (hash[6] & 0x0f) | 0x40;  // Version 4
+    hash[8] = (hash[8] & 0x3f) | 0x80;  // Variant 1
     snprintf(out_data->event_id, sizeof(out_data->event_id),
-             "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", rnd[0], rnd[1],
-             rnd[2], rnd[3], rnd[4], rnd[5], rnd[6], rnd[7], rnd[8], rnd[9], rnd[10], rnd[11],
-             rnd[12], rnd[13], rnd[14], rnd[15]);
+             "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", hash[0],
+             hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7], hash[8], hash[9],
+             hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]);
 
     // Note: The timestamp is left empty (0) as per architectural decision,
     // since we do not have an SNTP synchronized RTC on the P4 yet, and
     // GCP Pub/Sub handles ingestion timestamping natively.
+
+    return ESP_OK;
+}
+
+esp_err_t telemetry_decode_diagnostic(const uint8_t *raw_pb, size_t len,
+                                      telemetry_DiagnosticReport *out_data)
+{
+    if (raw_pb == NULL || out_data == NULL || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *out_data = (telemetry_DiagnosticReport)telemetry_DiagnosticReport_init_zero;
+    pb_istream_t stream = pb_istream_from_buffer(raw_pb, len);
+
+    bool status = pb_decode(&stream, telemetry_DiagnosticReport_fields, out_data);
+    if (!status) {
+        ESP_LOGE(TAG, "Diagnostic decoding failed: %s", PB_GET_ERROR(&stream));
+        return ESP_FAIL;
+    }
 
     return ESP_OK;
 }
