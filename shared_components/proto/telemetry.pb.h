@@ -9,61 +9,144 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+/* ── Estados del Nodo ──────────────────────────────────────── */
+typedef enum _telemetry_NodeStatus {
+    telemetry_NodeStatus_MONITORING = 0,
+    telemetry_NodeStatus_CALIBRATING = 1,
+    telemetry_NodeStatus_SELF_TESTING = 2,
+    telemetry_NodeStatus_HARDWARE_ERROR = 3
+} telemetry_NodeStatus;
+
+/* ── Comandos desde Gateway hacia Nodo (Downlink) ──────────── */
+typedef enum _telemetry_Command {
+    telemetry_Command_CMD_NONE = 0,
+    telemetry_Command_CMD_RUN_SELF_TEST = 1,
+    telemetry_Command_CMD_REBOOT = 2
+} telemetry_Command;
+
 /* Struct definitions */
-/* El "Mega-Esquema" canónico (Single Source of Truth)
- Alineado con: edge-telemetry-gateway/shared_components/proto/telemetry.proto */
 typedef struct _telemetry_TelemetryPayload {
-    /* Versioning */
+    /* ── Versioning ────────────────────────────────────────── */
     uint32_t protocol_version;
     uint32_t schema_version;
-    /* Identidad e Idempotencia */
-    char event_id[40]; /* UUID para idempotencia (inyectado por el gateway) */
-    char gateway_id[32]; /* MAC del gateway (inyectado por el gateway) */
-    char device_id[32]; /* MAC del nodo sensor */
-    uint32_t node_sequence; /* Secuencia originada por el nodo */
-    /* Tiempos */
-    uint64_t measured_at_ms; /* Timestamp en el nodo (o en el gateway si el nodo no tiene RTC) */
-    uint64_t ingested_at_ms; /* Timestamp al momento de ingestión en el gateway */
-    /* Ambiental y Calidad de Aire (BME688 / SCD41) */
+    /* ── Identidad e Idempotencia (inyectados por Gateway P4) ─ */
+    char event_id[40]; /* UUID v4 para idempotencia */
+    char gateway_id[32]; /* MAC del Gateway (formato XX:XX:XX:XX:XX:XX) */
+    char device_id[32]; /* MAC del nodo sensor (extraído del ESP-NOW header) */
+    uint32_t node_sequence; /* Secuencia originada por el nodo (detección de huecos) */
+    /* ── Tiempos ───────────────────────────────────────────── */
+    uint64_t measured_at_ms; /* Epoch ms en el nodo (vía RTC RV-1805) */
+    uint64_t ingested_at_ms; /* Epoch ms al ingresar al Gateway P4 */
+    /* ── Ambiental y Calidad de Aire (BME688 / BSEC / SCD41) ─ */
     bool has_temperature;
-    float temperature; /* Celsius */
+    float temperature; /* °C (compensada por BSEC) */
     bool has_humidity;
-    float humidity; /* % RH */
+    float humidity; /* % RH (compensada por BSEC) */
     bool has_pressure;
-    float pressure; /* hPa */
+    float pressure; /* hPa (presión barométrica) */
     bool has_gas_resistance;
-    float gas_resistance; /* Ohms (VOCs) */
+    float gas_resistance; /* Ohms (resistencia del MOX) */
     bool has_iaq;
-    float iaq; /* Index of Air Quality */
+    float iaq; /* Index of Air Quality (0-500) */
     bool has_co2;
-    uint32_t co2; /* ppm */
-    /* Partículas (BMV080) */
+    uint32_t co2; /* ppm (SCD41 NDIR fotoacústico) */
+    /* ── Partículas (BMV080 Láser) — Concentración de Masa ─── */
     bool has_pm1_0;
-    float pm1_0; /* ug/m3 */
+    float pm1_0; /* µg/m³ */
     bool has_pm2_5;
-    float pm2_5; /* ug/m3 */
+    float pm2_5; /* µg/m³ */
     bool has_pm10_0;
-    float pm10_0; /* ug/m3 */
-    /* Agua y Suelo */
+    float pm10_0; /* µg/m³ */
+    /* ── Agua y Suelo (reservado para futuro) ──────────────── */
     bool has_ph;
     float ph; /* 0.0 - 14.0 */
     bool has_dissolved_oxygen;
     float dissolved_oxygen; /* mg/L */
-    /* Diagnósticos del Nodo */
+    /* ── Diagnósticos del Nodo ─────────────────────────────── */
     bool has_battery_mv;
-    uint32_t battery_mv; /* Millivolts */
+    uint32_t battery_mv; /* Millivolts (ADC, futuro) */
     bool has_sleep_cycles;
-    uint32_t sleep_cycles; /* Hardware wake count */
+    uint32_t sleep_cycles; /* Contador de ciclos de despertar */
+    bool has_is_calibrating;
+    bool is_calibrating; /* true = warmup BSEC (12 pulsos iniciales) */
+    /* ── VOCs y CO2 Equivalente (BSEC Virtual Sensors) ─────── */
+    bool has_eco2;
+    float eco2; /* ppm (CO2 equivalente derivado de VOCs) */
+    bool has_bvoc;
+    float bvoc; /* ppm (Breath VOC equivalente) */
+    bool has_tvoc;
+    float tvoc; /* ppb (Total VOC equivalente) */
+    /* ── Partículas (BMV080 Láser) — Concentración Numérica ── */
+    bool has_pm1_0_count;
+    float pm1_0_count; /* partículas/m³ */
+    bool has_pm2_5_count;
+    float pm2_5_count; /* partículas/m³ */
+    bool has_pm10_0_count;
+    float pm10_0_count; /* partículas/m³ */
+    /* ── Estado de Hardware del Sensor Láser ────────────────── */
+    bool has_is_laser_obstructed;
+    bool is_laser_obstructed; /* true = lente sucia/bloqueada */
+    bool has_is_pm_out_of_range;
+    bool is_pm_out_of_range; /* true = PM2.5 > 1000 µg/m³ */
+    bool has_laser_runtime;
+    float laser_runtime; /* segundos desde inicio de medición */
+    /* ── Status Report Pasivo del Nodo ──────────────────────── */
+    bool has_system_error_bitmask;
+    uint32_t system_error_bitmask; /* Bitmask de errores hardware */
+    bool has_status;
+    telemetry_NodeStatus status; /* Estado operativo del nodo */
 } telemetry_TelemetryPayload;
+
+/* ── Respuesta del Gateway → Nodo (ACK Payload en ESP-NOW) ───
+ Transmitido por el C6 dentro de la ventana de 50ms del nodo */
+typedef struct _telemetry_GatewayAck {
+    bool has_command;
+    telemetry_Command command; /* Comando inyectado (Spooling del Mailbox C6) */
+    bool has_current_epoch_s;
+    uint64_t current_epoch_s; /* Hora UTC sincronizada (SNTP → P4 → C6) */
+} telemetry_GatewayAck;
+
+/* ── Reporte de Diagnóstico (Self-Test Activo) ───────────────
+ Emitido por el nodo con cabecera 0x11 tras ejecutar CMD_RUN_SELF_TEST */
+typedef struct _telemetry_DiagnosticReport {
+    bool has_system_error_bitmask;
+    uint32_t system_error_bitmask;
+    bool has_scd41_passed;
+    bool scd41_passed;
+    bool has_bmv080_passed;
+    bool bmv080_passed;
+    bool has_bme688_passed;
+    bool bme688_passed;
+} telemetry_DiagnosticReport;
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* Helper constants for enums */
+#define _telemetry_NodeStatus_MIN telemetry_NodeStatus_MONITORING
+#define _telemetry_NodeStatus_MAX telemetry_NodeStatus_HARDWARE_ERROR
+#define _telemetry_NodeStatus_ARRAYSIZE ((telemetry_NodeStatus)(telemetry_NodeStatus_HARDWARE_ERROR+1))
+
+#define _telemetry_Command_MIN telemetry_Command_CMD_NONE
+#define _telemetry_Command_MAX telemetry_Command_CMD_REBOOT
+#define _telemetry_Command_ARRAYSIZE ((telemetry_Command)(telemetry_Command_CMD_REBOOT+1))
+
+#define telemetry_TelemetryPayload_status_ENUMTYPE telemetry_NodeStatus
+
+#define telemetry_GatewayAck_command_ENUMTYPE telemetry_Command
+
+
+
 /* Initializer values for message structs */
-#define telemetry_TelemetryPayload_init_default  {0, 0, "", "", "", 0, 0, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
-#define telemetry_TelemetryPayload_init_zero     {0, 0, "", "", "", 0, 0, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0}
+#define telemetry_TelemetryPayload_init_default  {0, 0, "", "", "", 0, 0, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, _telemetry_NodeStatus_MIN}
+#define telemetry_GatewayAck_init_default        {false, _telemetry_Command_MIN, false, 0}
+#define telemetry_DiagnosticReport_init_default  {false, 0, false, 0, false, 0, false, 0}
+#define telemetry_TelemetryPayload_init_zero     {0, 0, "", "", "", 0, 0, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, false, _telemetry_NodeStatus_MIN}
+#define telemetry_GatewayAck_init_zero           {false, _telemetry_Command_MIN, false, 0}
+#define telemetry_DiagnosticReport_init_zero     {false, 0, false, 0, false, 0, false, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define telemetry_TelemetryPayload_protocol_version_tag 1
@@ -87,6 +170,24 @@ extern "C" {
 #define telemetry_TelemetryPayload_dissolved_oxygen_tag 19
 #define telemetry_TelemetryPayload_battery_mv_tag 20
 #define telemetry_TelemetryPayload_sleep_cycles_tag 21
+#define telemetry_TelemetryPayload_is_calibrating_tag 22
+#define telemetry_TelemetryPayload_eco2_tag      23
+#define telemetry_TelemetryPayload_bvoc_tag      24
+#define telemetry_TelemetryPayload_tvoc_tag      25
+#define telemetry_TelemetryPayload_pm1_0_count_tag 26
+#define telemetry_TelemetryPayload_pm2_5_count_tag 27
+#define telemetry_TelemetryPayload_pm10_0_count_tag 28
+#define telemetry_TelemetryPayload_is_laser_obstructed_tag 29
+#define telemetry_TelemetryPayload_is_pm_out_of_range_tag 30
+#define telemetry_TelemetryPayload_laser_runtime_tag 31
+#define telemetry_TelemetryPayload_system_error_bitmask_tag 32
+#define telemetry_TelemetryPayload_status_tag    33
+#define telemetry_GatewayAck_command_tag         1
+#define telemetry_GatewayAck_current_epoch_s_tag 2
+#define telemetry_DiagnosticReport_system_error_bitmask_tag 1
+#define telemetry_DiagnosticReport_scd41_passed_tag 2
+#define telemetry_DiagnosticReport_bmv080_passed_tag 3
+#define telemetry_DiagnosticReport_bme688_passed_tag 4
 
 /* Struct field encoding specification for nanopb */
 #define telemetry_TelemetryPayload_FIELDLIST(X, a) \
@@ -110,18 +211,50 @@ X(a, STATIC,   OPTIONAL, FLOAT,    pm10_0,           17) \
 X(a, STATIC,   OPTIONAL, FLOAT,    ph,               18) \
 X(a, STATIC,   OPTIONAL, FLOAT,    dissolved_oxygen,  19) \
 X(a, STATIC,   OPTIONAL, UINT32,   battery_mv,       20) \
-X(a, STATIC,   OPTIONAL, UINT32,   sleep_cycles,     21)
+X(a, STATIC,   OPTIONAL, UINT32,   sleep_cycles,     21) \
+X(a, STATIC,   OPTIONAL, BOOL,     is_calibrating,   22) \
+X(a, STATIC,   OPTIONAL, FLOAT,    eco2,             23) \
+X(a, STATIC,   OPTIONAL, FLOAT,    bvoc,             24) \
+X(a, STATIC,   OPTIONAL, FLOAT,    tvoc,             25) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pm1_0_count,      26) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pm2_5_count,      27) \
+X(a, STATIC,   OPTIONAL, FLOAT,    pm10_0_count,     28) \
+X(a, STATIC,   OPTIONAL, BOOL,     is_laser_obstructed,  29) \
+X(a, STATIC,   OPTIONAL, BOOL,     is_pm_out_of_range,  30) \
+X(a, STATIC,   OPTIONAL, FLOAT,    laser_runtime,    31) \
+X(a, STATIC,   OPTIONAL, UINT32,   system_error_bitmask,  32) \
+X(a, STATIC,   OPTIONAL, UENUM,    status,           33)
 #define telemetry_TelemetryPayload_CALLBACK NULL
 #define telemetry_TelemetryPayload_DEFAULT NULL
 
+#define telemetry_GatewayAck_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, UENUM,    command,           1) \
+X(a, STATIC,   OPTIONAL, UINT64,   current_epoch_s,   2)
+#define telemetry_GatewayAck_CALLBACK NULL
+#define telemetry_GatewayAck_DEFAULT NULL
+
+#define telemetry_DiagnosticReport_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, UINT32,   system_error_bitmask,   1) \
+X(a, STATIC,   OPTIONAL, BOOL,     scd41_passed,      2) \
+X(a, STATIC,   OPTIONAL, BOOL,     bmv080_passed,     3) \
+X(a, STATIC,   OPTIONAL, BOOL,     bme688_passed,     4)
+#define telemetry_DiagnosticReport_CALLBACK NULL
+#define telemetry_DiagnosticReport_DEFAULT NULL
+
 extern const pb_msgdesc_t telemetry_TelemetryPayload_msg;
+extern const pb_msgdesc_t telemetry_GatewayAck_msg;
+extern const pb_msgdesc_t telemetry_DiagnosticReport_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define telemetry_TelemetryPayload_fields &telemetry_TelemetryPayload_msg
+#define telemetry_GatewayAck_fields &telemetry_GatewayAck_msg
+#define telemetry_DiagnosticReport_fields &telemetry_DiagnosticReport_msg
 
 /* Maximum encoded size of messages (where known) */
 #define TELEMETRY_TELEMETRY_PB_H_MAX_SIZE        telemetry_TelemetryPayload_size
-#define telemetry_TelemetryPayload_size          221
+#define telemetry_DiagnosticReport_size          12
+#define telemetry_GatewayAck_size                13
+#define telemetry_TelemetryPayload_size          282
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -196,6 +196,7 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 | IPC frame protocol | ✅ Defined | 8 message types, 10B header, COBS+CRC16 |
 | IPC transport (UART) | ✅ Implemented | Core 1 ingest task, COBS TX/RX |
 | ESP-NOW receiver (C6) | ✅ Implemented | Wi-Fi STA + broadcast RX + MAC extraction |
+| Bidirectional Protocol | 🔄 In Progress | Header-based routing (0x10-0x31), GatewayAck, Downlink Spooling |
 | Ethernet manager | ✅ Implemented | EMAC + IP101GRI driver configured |
 | Cloud transport | ✅ Implemented | HTTPS mTLS to GCP Pub/Sub + JWT/ECDSA Auth |
 | Storage & Spooler | ✅ Implemented | MicroSD (SDMMC VFS) Store-and-Forward |

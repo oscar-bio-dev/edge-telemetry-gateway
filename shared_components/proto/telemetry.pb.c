@@ -6,7 +6,17 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(telemetry_TelemetryPayload, telemetry_TelemetryPayload, AUTO)
+PB_BIND(telemetry_TelemetryPayload, telemetry_TelemetryPayload, 2)
+
+
+PB_BIND(telemetry_GatewayAck, telemetry_GatewayAck, AUTO)
+
+
+PB_BIND(telemetry_DiagnosticReport, telemetry_DiagnosticReport, AUTO)
+
+
+
+
 
 
 

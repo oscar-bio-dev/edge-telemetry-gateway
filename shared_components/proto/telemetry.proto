@@ -2,41 +2,99 @@ syntax = "proto3";
 
 package telemetry;
 
-// El "Mega-Esquema" canónico (Single Source of Truth)
-// Alineado con: edge-telemetry-gateway/shared_components/proto/telemetry.proto
+// =============================================================================
+// Mega-Esquema Canónico (Single Source of Truth)
+// Fuente: edge-telemetry-gateway/shared_components/proto/telemetry.proto
+//
+// Los field numbers son SAGRADOS. Nunca reasignar ni reusar un tag eliminado.
+// Los campos 3-5 y 8 son inyectados exclusivamente por el Gateway P4.
+// Los campos 22-33 fueron añadidos por el nodo en v0.8.0-v0.11.0.
+// =============================================================================
+
 message TelemetryPayload {
-    // Versioning
+    // ── Versioning ──────────────────────────────────────────
     uint32 protocol_version = 1;
     uint32 schema_version = 2;
 
-    // Identidad e Idempotencia
-    string event_id = 3;          // UUID para idempotencia (inyectado por el gateway)
-    string gateway_id = 4;        // MAC del gateway (inyectado por el gateway)
-    string device_id = 5;         // MAC del nodo sensor
-    uint32 node_sequence = 6;     // Secuencia originada por el nodo
+    // ── Identidad e Idempotencia (inyectados por Gateway P4) ─
+    string event_id = 3;          // UUID v4 para idempotencia
+    string gateway_id = 4;        // MAC del Gateway (formato XX:XX:XX:XX:XX:XX)
+    string device_id = 5;         // MAC del nodo sensor (extraído del ESP-NOW header)
+    uint32 node_sequence = 6;     // Secuencia originada por el nodo (detección de huecos)
 
-    // Tiempos
-    uint64 measured_at_ms = 7;    // Timestamp en el nodo (o en el gateway si el nodo no tiene RTC)
-    uint64 ingested_at_ms = 8;    // Timestamp al momento de ingestión en el gateway
+    // ── Tiempos ─────────────────────────────────────────────
+    uint64 measured_at_ms = 7;    // Epoch ms en el nodo (vía RTC RV-1805)
+    uint64 ingested_at_ms = 8;    // Epoch ms al ingresar al Gateway P4
 
-    // Ambiental y Calidad de Aire (BME688 / SCD41)
-    optional float temperature = 9;      // Celsius
-    optional float humidity = 10;        // % RH
-    optional float pressure = 11;        // hPa
-    optional float gas_resistance = 12;  // Ohms (VOCs)
-    optional float iaq = 13;             // Index of Air Quality
-    optional uint32 co2 = 14;            // ppm
+    // ── Ambiental y Calidad de Aire (BME688 / BSEC / SCD41) ─
+    optional float temperature = 9;       // °C (compensada por BSEC)
+    optional float humidity = 10;         // % RH (compensada por BSEC)
+    optional float pressure = 11;         // hPa (presión barométrica)
+    optional float gas_resistance = 12;   // Ohms (resistencia del MOX)
+    optional float iaq = 13;              // Index of Air Quality (0-500)
+    optional uint32 co2 = 14;             // ppm (SCD41 NDIR fotoacústico)
 
-    // Partículas (BMV080)
-    optional float pm1_0 = 15;           // ug/m3
-    optional float pm2_5 = 16;           // ug/m3
-    optional float pm10_0 = 17;          // ug/m3
+    // ── Partículas (BMV080 Láser) — Concentración de Masa ───
+    optional float pm1_0 = 15;            // µg/m³
+    optional float pm2_5 = 16;            // µg/m³
+    optional float pm10_0 = 17;           // µg/m³
 
-    // Agua y Suelo
-    optional float ph = 18;              // 0.0 - 14.0
-    optional float dissolved_oxygen = 19;// mg/L
+    // ── Agua y Suelo (reservado para futuro) ────────────────
+    optional float ph = 18;               // 0.0 - 14.0
+    optional float dissolved_oxygen = 19; // mg/L
 
-    // Diagnósticos del Nodo
-    optional uint32 battery_mv = 20;     // Millivolts
-    optional uint32 sleep_cycles = 21;   // Hardware wake count
+    // ── Diagnósticos del Nodo ───────────────────────────────
+    optional uint32 battery_mv = 20;      // Millivolts (ADC, futuro)
+    optional uint32 sleep_cycles = 21;    // Contador de ciclos de despertar
+    optional bool is_calibrating = 22;    // true = warmup BSEC (12 pulsos iniciales)
+
+    // ── VOCs y CO2 Equivalente (BSEC Virtual Sensors) ───────
+    optional float eco2 = 23;             // ppm (CO2 equivalente derivado de VOCs)
+    optional float bvoc = 24;             // ppm (Breath VOC equivalente)
+    optional float tvoc = 25;             // ppb (Total VOC equivalente)
+
+    // ── Partículas (BMV080 Láser) — Concentración Numérica ──
+    optional float pm1_0_count = 26;      // partículas/m³
+    optional float pm2_5_count = 27;      // partículas/m³
+    optional float pm10_0_count = 28;     // partículas/m³
+
+    // ── Estado de Hardware del Sensor Láser ──────────────────
+    optional bool is_laser_obstructed = 29;   // true = lente sucia/bloqueada
+    optional bool is_pm_out_of_range = 30;    // true = PM2.5 > 1000 µg/m³
+    optional float laser_runtime = 31;        // segundos desde inicio de medición
+
+    // ── Status Report Pasivo del Nodo ────────────────────────
+    optional uint32 system_error_bitmask = 32; // Bitmask de errores hardware
+    optional NodeStatus status = 33;           // Estado operativo del nodo
+}
+
+// ── Estados del Nodo ────────────────────────────────────────
+enum NodeStatus {
+    MONITORING = 0;
+    CALIBRATING = 1;
+    SELF_TESTING = 2;
+    HARDWARE_ERROR = 3;
+}
+
+// ── Comandos desde Gateway hacia Nodo (Downlink) ────────────
+enum Command {
+    CMD_NONE = 0;
+    CMD_RUN_SELF_TEST = 1;
+    CMD_REBOOT = 2;
+}
+
+// ── Respuesta del Gateway → Nodo (ACK Payload en ESP-NOW) ───
+// Transmitido por el C6 dentro de la ventana de 50ms del nodo
+message GatewayAck {
+    optional Command command = 1;       // Comando inyectado (Spooling del Mailbox C6)
+    optional uint64 current_epoch_s = 2; // Hora UTC sincronizada (SNTP → P4 → C6)
+}
+
+// ── Reporte de Diagnóstico (Self-Test Activo) ───────────────
+// Emitido por el nodo con cabecera 0x11 tras ejecutar CMD_RUN_SELF_TEST
+message DiagnosticReport {
+    optional uint32 system_error_bitmask = 1;
+    optional bool scd41_passed = 2;
+    optional bool bmv080_passed = 3;
+    optional bool bme688_passed = 4;
 }
