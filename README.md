@@ -215,6 +215,7 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 | [004](docs/adr/004-mbedtls-cross-version-compat.md) | MbedTLS Cross-Version Compatibility | Accepted |
 | [005](docs/adr/005-microsd-vfs-and-degraded-mode.md) | MicroSD SDMMC VFS & Degraded Mode | Accepted |
 | [006](docs/adr/006-waveshare-p4-wifi6-poe-eth-hardware-guide.md) | **Waveshare P4-WIFI6-POE-ETH Hardware Guide** | Accepted |
+| [007](docs/adr/007-resiliency-idempotency.md) | Resiliency and Idempotency | Accepted |
 
 ## Security & Crypto
 

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0-alpha.2] - 2026-09-25
+
+### Fixed (Technical Audit Block 1 & 2)
+- **C6 Companion (Radio layer):**
+  - Always send `ESPNOW_HDR_ACK (0x20)` even when piggybacking commands. Fixed dropping of all commands at the node side due to unexpected `0x21` header (C1).
+  - Adopted `mailbox_peek()` and `mailbox_confirm()` non-destructive reading. Commands now survive in the mailbox if the ESP-NOW transmission fails (A3).
+  - Added periodic mailbox purge `mailbox_purge_expired()` every 64 frames (A4).
+  - Removed insecure ESP_LOGW of `CONFIG_ESPNOW_PMK` encryption key (A5).
+- **P4 Host (Orchestrator layer):**
+  - Fixed `CMD_INJECT` payload format to send 1-byte raw enum instead of Protobuf to C6 Mailbox (C2).
+  - Implemented `offline_spooler_pop()` with NVS cursor tracking and added `offline_rehydration_task` to push spooled data back into the ring buffer upon network recovery (A1).
+  - Fixed spooler dropping batch items on network failure. Now properly loops and encodes all failed `telemetry_TelemetryPayload` items (A1).
+  - Replaced random UUIDv4 generation with deterministic MD5 Hash (`MAC + node_sequence + sleep_cycles`) in `telemetry_decoder.c` for backend idempotency across retries/SD replays (A2).
+  - Implemented Nanopb decoding of `telemetry_DiagnosticReport` in `ipc_transport.c` to surface hardware faults (SCD41, BME688, BMV080) in the Gateway logs (M4).
+
 ## [1.1.0-alpha.1] - 2026-09-24
 
 ### Added
