@@ -33,7 +33,7 @@ extern "C" {
  */
 typedef struct {
     uint8_t mac[6];                           /**< Target node MAC address */
-    uint8_t payload[GW_MAILBOX_CMD_MAX_SIZE]; /**< GatewayAck Protobuf bytes */
+    uint8_t payload[GW_MAILBOX_CMD_MAX_SIZE]; /**< Raw command enum byte(s) */
     size_t payload_len;                       /**< Length of payload */
     uint64_t expire_epoch;                    /**< Epoch (seconds) after which entry is stale */
     bool occupied;                            /**< True if this slot holds a valid entry */
@@ -64,9 +64,9 @@ esp_err_t mailbox_put(const uint8_t *mac, const uint8_t *payload, size_t payload
 /**
  * @brief Look up and consume a pending command for a given MAC.
  *
- * If a valid, non-expired entry exists for the given MAC, copies the
- * payload into out_payload, sets out_len, marks the slot as free,
- * and returns true.
+ * @deprecated Use mailbox_peek() + mailbox_confirm() instead.
+ *             take() removes the entry before confirming radio delivery,
+ *             risking command loss if esp_now_send() fails.
  *
  * @param[in]  mac         Source MAC to look up (6 bytes).
  * @param[out] out_payload Buffer to receive the command payload.
@@ -74,6 +74,30 @@ esp_err_t mailbox_put(const uint8_t *mac, const uint8_t *payload, size_t payload
  * @return true if a command was found and consumed, false otherwise.
  */
 bool mailbox_take(const uint8_t *mac, uint8_t *out_payload, size_t *out_len);
+
+/**
+ * @brief Look up a pending command for a given MAC WITHOUT removing it.
+ *
+ * If a valid, non-expired entry exists, copies payload into out_payload
+ * and returns true. The entry remains in the mailbox until mailbox_confirm()
+ * is called after successful radio delivery.
+ *
+ * @param[in]  mac         Source MAC to look up (6 bytes).
+ * @param[out] out_payload Buffer to receive the command payload.
+ * @param[out] out_len     Receives the length of the payload.
+ * @return true if a command was found (still in mailbox), false otherwise.
+ */
+bool mailbox_peek(const uint8_t *mac, uint8_t *out_payload, size_t *out_len);
+
+/**
+ * @brief Confirm delivery and remove a previously peeked entry.
+ *
+ * Call this ONLY after esp_now_send() succeeds for the given MAC.
+ * If no entry matches (e.g., expired between peek and confirm), this is a no-op.
+ *
+ * @param[in] mac Target node MAC (6 bytes).
+ */
+void mailbox_confirm(const uint8_t *mac);
 
 /**
  * @brief Purge expired entries from the Mailbox.

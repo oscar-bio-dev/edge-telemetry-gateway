@@ -102,6 +102,7 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info, const uint8_t *
 static void ack_dispatch_task(void *arg)
 {
     espnow_rx_item_t item;
+    uint32_t frame_counter = 0;
     ESP_LOGI(TAG, "ACK Dispatch Task started (prio %d)", uxTaskPriorityGet(NULL));
 
     while (1) {
@@ -109,19 +110,27 @@ static void ack_dispatch_task(void *arg)
             continue;
         }
 
-        /* ── Step 1: Build GatewayAck ──────────────────────────── */
+        /* -- Periodic housekeeping: purge expired mailbox entries -- */
+        frame_counter++;
+        if ((frame_counter & 0x3F) == 0) { /* Every 64 frames */
+            uint64_t epoch = mailbox_get_epoch();
+            if (epoch > 0) {
+                mailbox_purge_expired(epoch);
+            }
+        }
+
+        /* -- Step 1: Build GatewayAck ----------------------------- */
         telemetry_GatewayAck ack = telemetry_GatewayAck_init_default;
         ack.current_epoch_s = mailbox_get_epoch();
         ack.has_current_epoch_s = true;
 
-        /* Check mailbox for pending commands */
+        /* Peek mailbox for pending commands (non-destructive read) */
         uint8_t cmd_buf[GW_MAILBOX_CMD_MAX_SIZE];
         size_t cmd_len = 0;
-        bool has_cmd = mailbox_take(item.src_mac, cmd_buf, &cmd_len);
+        bool has_cmd = mailbox_peek(item.src_mac, cmd_buf, &cmd_len);
 
         if (has_cmd) {
-            /* Decode the stored GatewayAck command fields and merge */
-            /* For now, we piggyback the command enum directly */
+            /* The mailbox stores the raw command enum byte (not Protobuf) */
             ack.has_command = true;
             ack.command = (telemetry_Command)cmd_buf[0];
             ESP_LOGI(TAG, "Piggybacked CMD %d to %02X:%02X:..:%02X", ack.command, item.src_mac[0],
@@ -136,26 +145,33 @@ static void ack_dispatch_task(void *arg)
             goto forward;
         }
 
-        /* Prepend ESP-NOW header byte */
+        /* Prepend ESP-NOW header byte. ALWAYS use 0x20 (ESPNOW_HDR_ACK).
+         * The command (if any) travels inside the GatewayAck protobuf,
+         * not in the header byte. The node only accepts 0x20. */
         uint8_t ack_frame[1 + 32];
-        ack_frame[0] = has_cmd ? ESPNOW_HDR_CMD : ESPNOW_HDR_ACK;
+        ack_frame[0] = ESPNOW_HDR_ACK;
         memcpy(&ack_frame[1], ack_pb, stream.bytes_written);
 
-        /* ── Step 2: Send ACK via ESP-NOW (unicast) ────────────── */
+        /* -- Step 2: Send ACK via ESP-NOW (unicast) --------------- */
         esp_err_t err = esp_now_send(item.src_mac, ack_frame, 1 + stream.bytes_written);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "ACK send failed to %02X:%02X:..:%02X: %s", item.src_mac[0],
                      item.src_mac[1], item.src_mac[5], esp_err_to_name(err));
+            /* Command stays in mailbox for next node cycle (peek was non-destructive) */
         } else {
             ESP_LOGD(TAG, "ACK sent to %02X:%02X:..:%02X (epoch=%" PRIu64 ", cmd=%d)",
                      item.src_mac[0], item.src_mac[1], item.src_mac[5], ack.current_epoch_s,
                      has_cmd);
+            /* Confirm delivery: remove command from mailbox only on success */
+            if (has_cmd) {
+                mailbox_confirm(item.src_mac);
+            }
         }
 
     forward:
-        /* ── Step 3: Enqueue for UART forwarding ───────────────── */
+        /* -- Step 3: Enqueue for UART forwarding ------------------ */
         if (xQueueSend(s_fwd_queue, &item, pdMS_TO_TICKS(10)) != pdTRUE) {
-            ESP_LOGW(TAG, "Forward queue full — telemetry will be lost");
+            ESP_LOGW(TAG, "Forward queue full - telemetry will be lost");
         }
     }
 }
@@ -245,7 +261,6 @@ esp_err_t espnow_receiver_init(void)
     ESP_LOGW(TAG, "=========================================================");
     ESP_LOGW(TAG, "🔌 GATEWAY MAC ADDRESS: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2],
              mac[3], mac[4], mac[5]);
-    ESP_LOGW(TAG, "🔑 PMK: %s", CONFIG_ESPNOW_PMK);
     ESP_LOGW(TAG, "=========================================================");
 
     return ESP_OK;

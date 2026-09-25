@@ -125,3 +125,44 @@ int mailbox_purge_expired(uint64_t now_epoch)
     }
     return purged;
 }
+
+bool mailbox_peek(const uint8_t *mac, uint8_t *out_payload, size_t *out_len)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+
+    for (int i = 0; i < GW_MAILBOX_MAX_ENTRIES; i++) {
+        if (s_entries[i].occupied && memcmp(s_entries[i].mac, mac, 6) == 0) {
+            /* Check expiration */
+            if (s_current_epoch > 0 && s_entries[i].expire_epoch < s_current_epoch) {
+                s_entries[i].occupied = false;
+                xSemaphoreGive(s_mutex);
+                ESP_LOGD(TAG, "Expired entry for %02X:%02X:..:%02X", mac[0], mac[1], mac[5]);
+                return false;
+            }
+            /* Copy payload but do NOT mark as free — caller must confirm */
+            memcpy(out_payload, s_entries[i].payload, s_entries[i].payload_len);
+            *out_len = s_entries[i].payload_len;
+            xSemaphoreGive(s_mutex);
+            return true;
+        }
+    }
+
+    xSemaphoreGive(s_mutex);
+    return false;
+}
+
+void mailbox_confirm(const uint8_t *mac)
+{
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+
+    for (int i = 0; i < GW_MAILBOX_MAX_ENTRIES; i++) {
+        if (s_entries[i].occupied && memcmp(s_entries[i].mac, mac, 6) == 0) {
+            s_entries[i].occupied = false;
+            xSemaphoreGive(s_mutex);
+            ESP_LOGD(TAG, "Confirmed delivery for %02X:%02X:..:%02X", mac[0], mac[1], mac[5]);
+            return;
+        }
+    }
+
+    xSemaphoreGive(s_mutex);
+}

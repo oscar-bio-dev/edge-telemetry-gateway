@@ -116,7 +116,7 @@ During the development of this dual-chip architecture, several technical challen
 | Production deployment | ✅ Recommended | Highly stable dual-chip architecture. The C6 codebase is strictly frozen to eliminate field-update risks. |
 
 ### Strategic Roadmap
-This project (`edge-telemetry-gateway`) serves as our flagship high-performance Gateway utilizing the **P4+C6 dual-chip** topology. 
+This project (`edge-telemetry-gateway`) serves as our flagship high-performance Gateway utilizing the **P4+C6 dual-chip** topology.
 
 In parallel, we are developing the `esp32s3-edge-gateway` project (based on ESP32-S3 + W5500 SPI Ethernet). The S3 project is **NOT** a replacement for this P4 architecture, but rather an ongoing research effort to provide a benchmark for **efficiency, power consumption, and scalability comparison** between the two paradigms (Dual-SoC vs Single-SoC + External PHY).
 
