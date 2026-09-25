@@ -1,6 +1,14 @@
 /*
  * SPDX-FileCopyrightText: 2026 oscar-bio-dev
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * IPC Sender — Bidirectional UART bridge between C6 and P4.
+ *
+ * TX path: Encodes IPC frames (COBS + CRC16) and sends to P4.
+ * RX path: Decodes incoming IPC frames from P4 and routes them:
+ *   - IPC_MSG_ADD_PEER  → espnow_add_dynamic_peer()
+ *   - IPC_HDR_SYNC_EPOCH → mailbox_set_epoch()
+ *   - IPC_HDR_CMD_INJECT → mailbox_put()
  */
 
 #include "ipc_sender.h"
@@ -10,13 +18,15 @@
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
-#include "sdkconfig.h"
-
-#include "espnow_receiver.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "gateway_headers.h"
 #include "ipc_frame.h"
+#include "sdkconfig.h"
+
+#include "espnow_receiver.h"
+#include "mailbox.h"
 
 #define UART_PORT_NUM  UART_NUM_1
 #define UART_BAUD_RATE CONFIG_IPC_UART_BAUD_RATE
@@ -28,6 +38,66 @@ static const char *TAG = "ipc_sender";
 static uint16_t global_seq_num = 0;
 static QueueHandle_t uart_evt_que = NULL;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * IPC RX Router — Process commands from P4
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+static void route_ipc_frame(const uint8_t *decoded_buf, size_t decoded_len)
+{
+    ipc_header_t *header = (ipc_header_t *)decoded_buf;
+    const uint8_t *payload = decoded_buf + sizeof(ipc_header_t);
+    size_t payload_len = decoded_len - sizeof(ipc_header_t) - 2; /* minus CRC16 */
+
+    switch (header->type) {
+        case IPC_MSG_ADD_PEER: {
+            if (payload_len >= sizeof(ipc_add_peer_payload_t)) {
+                ipc_add_peer_payload_t *peer = (ipc_add_peer_payload_t *)payload;
+                espnow_add_dynamic_peer(peer->mac, peer->lmk);
+            } else {
+                ESP_LOGW(TAG, "ADD_PEER payload too short: %zu", payload_len);
+            }
+            break;
+        }
+
+        case IPC_HDR_SYNC_EPOCH: {
+            if (payload_len >= sizeof(uint64_t)) {
+                uint64_t epoch;
+                memcpy(&epoch, payload, sizeof(uint64_t));
+                mailbox_set_epoch(epoch);
+                ESP_LOGI(TAG, "Epoch synchronized: %" PRIu64, epoch);
+            } else {
+                ESP_LOGW(TAG, "SYNC_EPOCH payload too short: %zu", payload_len);
+            }
+            break;
+        }
+
+        case IPC_HDR_CMD_INJECT: {
+            if (payload_len >= 7) { /* MAC(6) + at least 1 byte of command */
+                const uint8_t *target_mac = payload;
+                const uint8_t *cmd_data = payload + 6;
+                size_t cmd_len = payload_len - 6;
+                esp_err_t err = mailbox_put(target_mac, cmd_data, cmd_len);
+                if (err == ESP_OK) {
+                    ESP_LOGI(TAG, "CMD injected for %02X:%02X:%02X:%02X:%02X:%02X (%zu bytes)",
+                             target_mac[0], target_mac[1], target_mac[2], target_mac[3],
+                             target_mac[4], target_mac[5], cmd_len);
+                }
+            } else {
+                ESP_LOGW(TAG, "CMD_INJECT payload too short: %zu", payload_len);
+            }
+            break;
+        }
+
+        default:
+            ESP_LOGW(TAG, "Unknown IPC type from P4: 0x%02X", header->type);
+            break;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * IPC RX Task — COBS decode loop for frames from P4
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 static void ipc_rx_task(void *arg)
 {
     uart_event_t event;
@@ -35,6 +105,8 @@ static void ipc_rx_task(void *arg)
 
     uint8_t frame_buffer[IPC_ENCODED_FRAME_MAX_SIZE];
     size_t frame_idx = 0;
+
+    ESP_LOGI(TAG, "IPC RX Task started");
 
     while (1) {
         if (xQueueReceive(uart_evt_que, (void *)&event, portMAX_DELAY)) {
@@ -51,13 +123,7 @@ static void ipc_rx_task(void *arg)
                                                         decoded_buf[decoded_len - 1];
                                 uint16_t calc_crc = crc16_ccitt(decoded_buf, decoded_len - 2);
                                 if (calc_crc == expected_crc) {
-                                    ipc_header_t *header = (ipc_header_t *)decoded_buf;
-                                    if (header->type == IPC_MSG_ADD_PEER) {
-                                        ipc_add_peer_payload_t *payload =
-                                            (ipc_add_peer_payload_t *)(decoded_buf +
-                                                                       sizeof(ipc_header_t));
-                                        espnow_add_dynamic_peer(payload->mac, payload->lmk);
-                                    }
+                                    route_ipc_frame(decoded_buf, decoded_len);
                                 } else {
                                     ESP_LOGW(TAG, "CRC Error in RX: Calc 0x%04X != Exp 0x%04X",
                                              calc_crc, expected_crc);
@@ -83,6 +149,10 @@ static void ipc_rx_task(void *arg)
     free(dtmp);
     vTaskDelete(NULL);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Initialization & TX API
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
 esp_err_t ipc_sender_init(void)
 {
@@ -135,21 +205,21 @@ esp_err_t ipc_sender_send_frame(ipc_msg_type_t type, const uint8_t *src_mac, int
     header->seq_num = global_seq_num++;
     header->rssi = rssi;
 
-    // Copy payload
+    /* Copy payload */
     if (payload && payload_len > 0) {
         memcpy(raw_frame + sizeof(ipc_header_t), payload, payload_len);
     }
 
     size_t raw_len = sizeof(ipc_header_t) + payload_len;
 
-    // Calculate CRC16
+    /* Calculate CRC16 */
     uint16_t crc = crc16_ccitt(raw_frame, raw_len);
     raw_frame[raw_len++] = (uint8_t)(crc >> 8);
     raw_frame[raw_len++] = (uint8_t)(crc & 0xFF);
 
-    // Encode with COBS
+    /* Encode with COBS */
     uint8_t encoded_frame[IPC_ENCODED_FRAME_MAX_SIZE];
-    encoded_frame[0] = 0x00;  // Leading delimiter
+    encoded_frame[0] = 0x00; /* Leading delimiter */
 
     size_t encoded_len = cobs_encode(raw_frame, raw_len, &encoded_frame[1]);
     if (encoded_len == 0) {
@@ -157,19 +227,18 @@ esp_err_t ipc_sender_send_frame(ipc_msg_type_t type, const uint8_t *src_mac, int
         return ESP_FAIL;
     }
 
-    encoded_frame[1 + encoded_len] = 0x00;  // Trailing delimiter
+    encoded_frame[1 + encoded_len] = 0x00; /* Trailing delimiter */
 
     size_t total_tx_len = 2 + encoded_len;
 
-    // Send over UART
+    /* Send over UART */
     int tx_bytes = uart_write_bytes(UART_PORT_NUM, encoded_frame, total_tx_len);
     if (tx_bytes != total_tx_len) {
         ESP_LOGE(TAG, "UART TX failed: sent %d of %zu", tx_bytes, total_tx_len);
         return ESP_FAIL;
     }
 
-    // Wait until TX is done to ensure the payload is actually out (optional, but good for stability
-    // if bursts are rare)
+    /* Wait until TX is done */
     uart_wait_tx_done(UART_PORT_NUM, pdMS_TO_TICKS(50));
 
     return ESP_OK;
