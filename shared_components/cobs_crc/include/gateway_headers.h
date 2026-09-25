@@ -33,16 +33,16 @@ extern "C" {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /** Uplink: Node → Gateway (Telemetry) */
-#define ESPNOW_HDR_TELEMETRY        0x10
+#define ESPNOW_HDR_TELEMETRY 0x10
 
 /** Uplink: Node → Gateway (Diagnostic Report after Self-Test) */
-#define ESPNOW_HDR_DIAGNOSTIC       0x11
+#define ESPNOW_HDR_DIAGNOSTIC 0x11
 
 /** Downlink: Gateway → Node (Standard ACK with Epoch) */
-#define ESPNOW_HDR_ACK              0x20
+#define ESPNOW_HDR_ACK 0x20
 
 /** Downlink: Gateway → Node (Tactical Command Injection) */
-#define ESPNOW_HDR_CMD              0x21
+#define ESPNOW_HDR_CMD 0x21
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * §2. IPC Headers (UART Layer: P4 ↔ C6)
@@ -53,13 +53,13 @@ extern "C" {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /** P4 → C6: Epoch synchronization (payload: uint64_t epoch_s) */
-#define IPC_HDR_SYNC_EPOCH          0x30
+#define IPC_HDR_SYNC_EPOCH 0x30
 
 /** P4 → C6: Enqueue command for a node (payload: MAC[6] + Command Protobuf) */
-#define IPC_HDR_CMD_INJECT          0x31
+#define IPC_HDR_CMD_INJECT 0x31
 
 /** C6 → P4: Confirm command was delivered to node (payload: MAC[6]) */
-#define IPC_HDR_CMD_DELIVERED       0x32
+#define IPC_HDR_CMD_DELIVERED 0x32
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * §3. Mailbox Configuration (C6 RAM)
@@ -69,13 +69,13 @@ extern "C" {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /** Maximum number of simultaneous pending commands in the C6 Mailbox */
-#define GW_MAILBOX_MAX_ENTRIES      16
+#define GW_MAILBOX_MAX_ENTRIES 16
 
 /** Maximum payload size for a single command (GatewayAck Protobuf) */
-#define GW_MAILBOX_CMD_MAX_SIZE     32
+#define GW_MAILBOX_CMD_MAX_SIZE 32
 
 /** ACK response deadline (must be < node's RX window of 50ms) */
-#define GW_ACK_DEADLINE_MS          20
+#define GW_ACK_DEADLINE_MS 20
 
 #ifdef __cplusplus
 }

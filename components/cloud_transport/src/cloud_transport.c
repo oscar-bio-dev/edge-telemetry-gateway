@@ -12,6 +12,8 @@
 #include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "gateway_headers.h"
+#include "ipc_transport.h"
 #include "jwt_generator.h"
 #include "offline_spooler.h"
 #include "telemetry_buffer.h"
@@ -154,12 +156,58 @@ static void gcp_publisher_task(void *arg)
     }
 }
 
+// ============================================================================
+// Downlink Spooling (Pull from GCP Pub/Sub)
+// ============================================================================
+static void gcp_subscriber_task(void *arg)
+{
+    ESP_LOGI(TAG, "GCP Subscriber Task started on Core %d", xPortGetCoreID());
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(15000));  // Pull every 15 seconds
+
+        if (!s_is_online)
+            continue;
+        refresh_jwt_if_needed();
+
+        // En el futuro, aquí se hace el HTTP GET a la suscripción Pull de Pub/Sub
+        // esp_http_client_config_t config = { .url = CONFIG_GCP_PUBSUB_SUB_ENDPOINT ... }
+
+        // Para esta Fase 2, simularemos la llegada de un comando CMD_RUN_SELF_TEST
+        // si recibimos una señal interna o para un MAC específico (Mocking).
+        // La estructura del payload para el C6 (IPC_HDR_CMD_INJECT) es:
+        // [MAC: 6 bytes] + [GatewayAck Protobuf: N bytes]
+
+        /*
+        uint8_t target_mac[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+        telemetry_GatewayAck ack_cmd = telemetry_GatewayAck_init_default;
+        ack_cmd.has_command = true;
+        ack_cmd.command = telemetry_Command_CMD_RUN_SELF_TEST;
+
+        uint8_t pb_buffer[32];
+        pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
+        pb_encode(&stream, telemetry_GatewayAck_fields, &ack_cmd);
+
+        uint8_t ipc_payload[38];
+        memcpy(ipc_payload, target_mac, 6);
+        memcpy(ipc_payload + 6, pb_buffer, stream.bytes_written);
+
+        ipc_transport_send(IPC_HDR_CMD_INJECT, ipc_payload, 6 + stream.bytes_written);
+        ESP_LOGI(TAG, "Downlink Spooled: Enqueued CMD_RUN_SELF_TEST to C6 for %02X:%02X...",
+        target_mac[0], target_mac[1]);
+        */
+    }
+}
+
 esp_err_t cloud_transport_init(void)
 {
     ESP_LOGI(TAG, "Initializing Cloud Transport (GCP Pub/Sub) via mTLS...");
 
     // Create the publisher task on Core 0 (Networking Core)
     xTaskCreatePinnedToCore(gcp_publisher_task, "gcp_publisher", 16384, NULL, 5, NULL, 0);
+
+    // Create the subscriber task for Downlink Commands
+    xTaskCreatePinnedToCore(gcp_subscriber_task, "gcp_subscriber", 8192, NULL, 4, NULL, 0);
 
     return ESP_OK;
 }

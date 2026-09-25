@@ -4,7 +4,7 @@ idf_component_register(
          "src/gcp_pubsub.c"
     INCLUDE_DIRS "include"
     REQUIRES telemetry_decoder
-    PRIV_REQUIRES esp_http_client mbedtls cjson nvs_flash offline_spooler esp_netif telemetry_buffer
+    PRIV_REQUIRES esp_http_client mbedtls cjson nvs_flash offline_spooler esp_netif telemetry_buffer ipc_transport cobs_crc
 )
 
 if(NOT CONFIG_HW_ECDSA_ENABLE)

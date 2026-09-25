@@ -4,6 +4,7 @@
  */
 
 #include "ipc_transport.h"
+#include <time.h>
 #include "cobs.h"
 #include "crc16.h"
 #include "driver/gpio.h"
@@ -11,6 +12,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "gateway_headers.h"
 #include "ipc_frame.h"
 #include "sdkconfig.h"
 #include "telemetry_buffer.h"
@@ -55,24 +57,46 @@ static void ipc_ingest_task(void *arg)
                         if (calc_crc == expected_crc) {
                             ipc_header_t *header = (ipc_header_t *)decoded_buf;
 
-                            // Decode Protobuf payload
-                            telemetry_TelemetryPayload payload_struct;
-                            size_t pb_len = decoded_len - sizeof(ipc_header_t) - 2;
-                            const uint8_t *pb_data = decoded_buf + sizeof(ipc_header_t);
+                            // Decode Protobuf payload based on ESP-NOW Header
+                            size_t payload_len = decoded_len - sizeof(ipc_header_t) - 2;
+                            const uint8_t *payload_data = decoded_buf + sizeof(ipc_header_t);
 
-                            esp_err_t decode_err = telemetry_decode_payload(
-                                pb_data, pb_len, header->src_mac, &payload_struct);
-                            if (decode_err == ESP_OK) {
-                                // Push to Ring Buffer
-                                esp_err_t push_err = telemetry_buffer_push(&payload_struct);
-                                if (push_err == ESP_OK) {
-                                    ESP_LOGD(TAG, "Telemetry pushed to buffer. MAC: %s",
-                                             payload_struct.device_id);
+                            if (payload_len < 1) {
+                                ESP_LOGW(TAG, "Payload too short (no header byte)");
+                                frame_idx = 0;
+                                continue;
+                            }
+
+                            uint8_t espnow_hdr = payload_data[0];
+                            const uint8_t *pb_data = payload_data + 1;
+                            size_t pb_len = payload_len - 1;
+
+                            if (espnow_hdr == ESPNOW_HDR_TELEMETRY) {
+                                telemetry_TelemetryPayload payload_struct;
+                                esp_err_t decode_err = telemetry_decode_payload(
+                                    pb_data, pb_len, header->src_mac, &payload_struct);
+                                if (decode_err == ESP_OK) {
+                                    // Push to Ring Buffer
+                                    esp_err_t push_err = telemetry_buffer_push(&payload_struct);
+                                    if (push_err == ESP_OK) {
+                                        ESP_LOGD(TAG, "Telemetry pushed to buffer. MAC: %s",
+                                                 payload_struct.device_id);
+                                    } else {
+                                        ESP_LOGW(TAG, "Telemetry dropped. Buffer full.");
+                                    }
                                 } else {
-                                    ESP_LOGW(TAG, "Telemetry dropped. Buffer full.");
+                                    ESP_LOGE(TAG, "Failed to decode telemetry payload");
                                 }
+                            } else if (espnow_hdr == ESPNOW_HDR_DIAGNOSTIC) {
+                                ESP_LOGI(TAG,
+                                         "Received Diagnostic Report from MAC "
+                                         "%02X:%02X:%02X:%02X:%02X:%02X",
+                                         header->src_mac[0], header->src_mac[1], header->src_mac[2],
+                                         header->src_mac[3], header->src_mac[4],
+                                         header->src_mac[5]);
+                                // In the future, push to a diagnostic buffer
                             } else {
-                                ESP_LOGE(TAG, "Failed to decode telemetry payload");
+                                ESP_LOGW(TAG, "Unknown ESP-NOW header: 0x%02X", espnow_hdr);
                             }
 
                         } else {
@@ -94,6 +118,29 @@ static void ipc_ingest_task(void *arg)
                     ESP_LOGE(TAG, "Frame buffer overflow! Dropping.");
                     frame_idx = 0;
                 }
+            }
+        }
+    }
+}
+
+static void epoch_sync_task(void *arg)
+{
+    ESP_LOGI(TAG, "Epoch Sync Task started");
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(60000));  // Every 60s
+        time_t now = time(NULL);
+
+        // Wait until time is synchronized (year > 2024)
+        struct tm timeinfo;
+        gmtime_r(&now, &timeinfo);
+        if (timeinfo.tm_year + 1900 > 2024) {
+            uint64_t epoch_s = (uint64_t)now;
+            esp_err_t err =
+                ipc_transport_send(IPC_HDR_SYNC_EPOCH, (const uint8_t *)&epoch_s, sizeof(epoch_s));
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, "Sent Epoch Sync (%" PRIu64 ") to C6", epoch_s);
+            } else {
+                ESP_LOGE(TAG, "Failed to send Epoch Sync to C6");
             }
         }
     }
@@ -123,8 +170,9 @@ esp_err_t ipc_transport_init(void)
     if (err != ESP_OK)
         return err;
 
-    // Pin task to Core 1 (Ingest / App Core)
+    // Pin tasks
     xTaskCreatePinnedToCore(ipc_ingest_task, "ipc_ingest", 4096, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(epoch_sync_task, "epoch_sync", 2048, NULL, 2, NULL, 1);
 
     ESP_LOGI(TAG, "UART IPC Initialized on TX:%d RX:%d @ %d bps", UART_TX_PIN, UART_RX_PIN,
              UART_BAUD_RATE);
