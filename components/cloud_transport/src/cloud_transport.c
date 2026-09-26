@@ -162,7 +162,8 @@ static void gcp_publisher_task(void *arg)
         if (err == ESP_OK) {
             int status = esp_http_client_get_status_code(client);
             if (status == 200) {
-                ESP_LOGI(TAG, "Successfully published %d payloads to Pub/Sub! (Status 200)", (int)count);
+                ESP_LOGI(TAG, "Successfully published %d payloads to Pub/Sub! (Status 200)",
+                         (int)count);
                 s_fail_count = 0;
                 s_is_online = true;
                 if (from_spooler) {
