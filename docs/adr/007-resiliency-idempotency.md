@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-In an ultra-low-power environmental monitoring network, network instability (Wi-Fi disconnections, ISP outages) and hardware limits (radio collisions) are common. The Edge Telemetry Gateway sits at the chokepoint between thousands of node telemetry packets and the Cloud. 
+In an ultra-low-power environmental monitoring network, network instability (Wi-Fi disconnections, ISP outages) and hardware limits (radio collisions) are common. The Edge Telemetry Gateway sits at the chokepoint between thousands of node telemetry packets and the Cloud.
 
 During our technical audit of the Phase 3 MVP, we found critical vulnerabilities in our Store-and-Forward and Idempotency architecture:
 1. **Destructive Reads:** Commands routed from Cloud to C6 were destroyed upon read from the Mailbox, even if the ESP-NOW transmission to the node failed immediately afterward.
@@ -24,7 +24,7 @@ Instead of a destructive `mailbox_take()` on the C6, we now use a two-step patte
 This ensures that if the node goes out of range or RF interference occurs, the command remains spooled for the node's next wake cycle.
 
 ### 2. NVS Cursor for Offline Spooler
-We implemented `offline_spooler_pop()` as an append-only log reader. 
+We implemented `offline_spooler_pop()` as an append-only log reader.
 - A persistent read cursor is stored in Non-Volatile Storage (NVS).
 - An asynchronous `offline_rehydration_task` periodically attempts to pop from the Spooler and feeds the parsed `telemetry_TelemetryPayload` back into the main Ring Buffer whenever `s_is_online` is true.
 - This creates a seamless re-ingestion flow that utilizes the existing JWT/mTLS publishing logic.

@@ -80,14 +80,15 @@ static void gcp_publisher_task(void *arg)
             for (size_t i = 0; i < BATCH_SIZE; i++) {
                 uint8_t pb_buffer[256];
                 uint16_t pb_len = 0;
-                if (offline_spooler_peek(temp_cursor, pb_buffer, sizeof(pb_buffer), &pb_len, &next_cursor) == ESP_OK) {
+                if (offline_spooler_peek(temp_cursor, pb_buffer, sizeof(pb_buffer), &pb_len,
+                                         &next_cursor) == ESP_OK) {
                     pb_istream_t stream = pb_istream_from_buffer(pb_buffer, pb_len);
                     if (pb_decode(&stream, telemetry_TelemetryPayload_fields, &payloads[count])) {
                         count++;
                         temp_cursor = next_cursor;
                     } else {
                         ESP_LOGW(TAG, "Corrupt payload in spooler, skipping item");
-                        temp_cursor = next_cursor; // skip corrupt
+                        temp_cursor = next_cursor;  // skip corrupt
                     }
                 } else {
                     break;
@@ -259,7 +260,8 @@ static void gcp_subscriber_task(void *arg)
                             cJSON *ack_id = cJSON_GetObjectItem(msg_obj, "ackId");
                             cJSON *message = cJSON_GetObjectItem(msg_obj, "message");
                             if (ack_id && message) {
-                                cJSON_AddItemToArray(ack_ids, cJSON_CreateString(ack_id->valuestring));
+                                cJSON_AddItemToArray(ack_ids,
+                                                     cJSON_CreateString(ack_id->valuestring));
 
                                 cJSON *data = cJSON_GetObjectItem(message, "data");
                                 if (data && data->valuestring) {
@@ -277,14 +279,18 @@ static void gcp_subscriber_task(void *arg)
                                         cJSON *cmd = cJSON_GetObjectItem(cmd_json, "cmd");
                                         if (mac && mac->valuestring && cmd) {
                                             uint8_t target_mac[6];
-                                            if (sscanf(mac->valuestring, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-                                                       &target_mac[0], &target_mac[1], &target_mac[2],
-                                                       &target_mac[3], &target_mac[4], &target_mac[5]) == 6) {
+                                            if (sscanf(mac->valuestring,
+                                                       "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                                                       &target_mac[0], &target_mac[1],
+                                                       &target_mac[2], &target_mac[3],
+                                                       &target_mac[4], &target_mac[5]) == 6) {
                                                 uint8_t ipc_payload[7];
                                                 memcpy(ipc_payload, target_mac, 6);
                                                 ipc_payload[6] = (uint8_t)cmd->valueint;
-                                                ipc_transport_send(IPC_HDR_CMD_INJECT, ipc_payload, sizeof(ipc_payload));
-                                                ESP_LOGI(TAG, "Enqueued Downlink CMD %d for %s", cmd->valueint, mac->valuestring);
+                                                ipc_transport_send(IPC_HDR_CMD_INJECT, ipc_payload,
+                                                                   sizeof(ipc_payload));
+                                                ESP_LOGI(TAG, "Enqueued Downlink CMD %d for %s",
+                                                         cmd->valueint, mac->valuestring);
                                             }
                                         }
                                         cJSON_Delete(cmd_json);
@@ -307,12 +313,17 @@ static void gcp_subscriber_task(void *arg)
                                         .method = HTTP_METHOD_POST,
                                         .timeout_ms = 5000,
                                     };
-                                    esp_http_client_handle_t ack_client = esp_http_client_init(&ack_config);
-                                    esp_http_client_set_header(ack_client, "Content-Type", "application/json");
-                                    esp_http_client_set_header(ack_client, "Authorization", auth_header);
-                                    esp_http_client_set_post_field(ack_client, ack_payload, strlen(ack_payload));
+                                    esp_http_client_handle_t ack_client =
+                                        esp_http_client_init(&ack_config);
+                                    esp_http_client_set_header(ack_client, "Content-Type",
+                                                               "application/json");
+                                    esp_http_client_set_header(ack_client, "Authorization",
+                                                               auth_header);
+                                    esp_http_client_set_post_field(ack_client, ack_payload,
+                                                                   strlen(ack_payload));
                                     if (esp_http_client_perform(ack_client) == ESP_OK) {
-                                        ESP_LOGI(TAG, "Acknowledged %d messages", cJSON_GetArraySize(ack_ids));
+                                        ESP_LOGI(TAG, "Acknowledged %d messages",
+                                                 cJSON_GetArraySize(ack_ids));
                                     }
                                     esp_http_client_cleanup(ack_client);
                                 }
@@ -329,8 +340,6 @@ static void gcp_subscriber_task(void *arg)
         free(response_buf);
     }
 }
-
-
 
 esp_err_t cloud_transport_init(void)
 {

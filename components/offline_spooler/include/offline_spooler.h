@@ -39,7 +39,8 @@ esp_err_t offline_spooler_append(const uint8_t *pb_data, uint16_t length);
  * @param out_next_cursor The cursor position immediately after this item.
  * @return ESP_OK on success, ESP_ERR_NOT_FOUND if empty or end of file reached.
  */
-esp_err_t offline_spooler_peek(uint32_t in_cursor, uint8_t *out_buffer, uint16_t max_len, uint16_t *out_len, uint32_t *out_next_cursor);
+esp_err_t offline_spooler_peek(uint32_t in_cursor, uint8_t *out_buffer, uint16_t max_len,
+                               uint16_t *out_len, uint32_t *out_next_cursor);
 
 /**
  * @brief Returns the current committed read cursor position.

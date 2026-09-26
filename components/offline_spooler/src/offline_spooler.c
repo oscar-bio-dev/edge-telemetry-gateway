@@ -99,7 +99,8 @@ esp_err_t offline_spooler_append(const uint8_t *pb_data, uint16_t length)
     return ESP_OK;
 }
 
-esp_err_t offline_spooler_peek(uint32_t in_cursor, uint8_t *out_buffer, uint16_t max_len, uint16_t *out_len, uint32_t *out_next_cursor)
+esp_err_t offline_spooler_peek(uint32_t in_cursor, uint8_t *out_buffer, uint16_t max_len,
+                               uint16_t *out_len, uint32_t *out_next_cursor)
 {
     if (storage_manager_is_degraded()) {
         return ESP_FAIL;
@@ -183,17 +184,20 @@ uint32_t offline_spooler_get_cursor(void)
 
 esp_err_t offline_spooler_compact(void)
 {
-    if (storage_manager_is_degraded()) return ESP_FAIL;
+    if (storage_manager_is_degraded())
+        return ESP_FAIL;
 
-    // To prevent fragmentation and excessive SD wear, we only compact if read_cursor is large enough
+    // To prevent fragmentation and excessive SD wear, we only compact if read_cursor is large
+    // enough
     if (s_read_cursor < 32 * 1024) {
-        return ESP_OK; // No need to compact yet
+        return ESP_OK;  // No need to compact yet
     }
 
     ESP_LOGI(TAG, "Compacting spooler. Current cursor: %lu", s_read_cursor);
 
     FILE *f_in = fopen(SPOOL_FILE_PATH, "rb");
-    if (!f_in) return ESP_FAIL;
+    if (!f_in)
+        return ESP_FAIL;
 
     FILE *f_out = fopen("/sdcard/offline_spooler.tmp", "wb");
     if (!f_out) {
