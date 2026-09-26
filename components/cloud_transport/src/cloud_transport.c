@@ -160,8 +160,9 @@ static void gcp_publisher_task(void *arg)
         esp_http_client_set_post_field(client, json_payload, strlen(json_payload));
 
         esp_err_t err = esp_http_client_perform(client);
+        int status = 0;
         if (err == ESP_OK) {
-            int status = esp_http_client_get_status_code(client);
+            status = esp_http_client_get_status_code(client);
             if (status == 200) {
                 ESP_LOGI(TAG, "Successfully published %d payloads to Pub/Sub! (Status 200)",
                          (int)count);
@@ -182,20 +183,20 @@ static void gcp_publisher_task(void *arg)
 
         esp_http_client_cleanup(client);
 
-        if (s_fail_count >= MAX_RETRIES) {
-            if (s_is_online) {
-                ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
-                s_is_online = false;
-            }
-            if (!from_spooler) {
-                for (size_t i = 0; i < count; i++) {
-                    uint8_t pb_buffer[256];
-                    pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
-                    if (pb_encode(&stream, telemetry_TelemetryPayload_fields, &payloads[i])) {
-                        offline_spooler_append(pb_buffer, stream.bytes_written);
-                    }
+        if ((err != ESP_OK || status != 200) && !from_spooler) {
+            ESP_LOGW(TAG, "HTTP POST failed. Spooling %d lost RAM payloads to SD...", (int)count);
+            for (size_t i = 0; i < count; i++) {
+                uint8_t pb_buffer[256];
+                pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
+                if (pb_encode(&stream, telemetry_TelemetryPayload_fields, &payloads[i])) {
+                    offline_spooler_append(pb_buffer, stream.bytes_written);
                 }
             }
+        }
+
+        if (s_fail_count >= MAX_RETRIES && s_is_online) {
+            ESP_LOGW(TAG, "Network declared DOWN. Rerouting to Offline Spooler.");
+            s_is_online = false;
         }
     }
 }
@@ -262,41 +263,60 @@ static void gcp_subscriber_task(void *arg)
                             cJSON *ack_id = cJSON_GetObjectItem(msg_obj, "ackId");
                             cJSON *message = cJSON_GetObjectItem(msg_obj, "message");
                             if (ack_id && message) {
-                                cJSON_AddItemToArray(ack_ids,
-                                                     cJSON_CreateString(ack_id->valuestring));
-
+                                bool should_ack =
+                                    true;  // ACK by default to drop malformed messages
                                 cJSON *data = cJSON_GetObjectItem(message, "data");
                                 if (data && data->valuestring) {
                                     unsigned char decoded[256];
                                     size_t olen = 0;
-                                    mbedtls_base64_decode(decoded, sizeof(decoded), &olen,
-                                                          (const unsigned char *)data->valuestring,
-                                                          strlen(data->valuestring));
-                                    decoded[olen] = '\0';
+                                    int ret = mbedtls_base64_decode(
+                                        decoded, sizeof(decoded) - 1, &olen,
+                                        (const unsigned char *)data->valuestring,
+                                        strlen(data->valuestring));
+                                    if (ret == 0 && olen < sizeof(decoded)) {
+                                        decoded[olen] = '\0';
 
-                                    // Try to parse JSON command
-                                    cJSON *cmd_json = cJSON_Parse((const char *)decoded);
-                                    if (cmd_json) {
-                                        cJSON *mac = cJSON_GetObjectItem(cmd_json, "mac");
-                                        cJSON *cmd = cJSON_GetObjectItem(cmd_json, "cmd");
-                                        if (mac && mac->valuestring && cmd) {
-                                            uint8_t target_mac[6];
-                                            if (sscanf(mac->valuestring,
-                                                       "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-                                                       &target_mac[0], &target_mac[1],
-                                                       &target_mac[2], &target_mac[3],
-                                                       &target_mac[4], &target_mac[5]) == 6) {
-                                                uint8_t ipc_payload[7];
-                                                memcpy(ipc_payload, target_mac, 6);
-                                                ipc_payload[6] = (uint8_t)cmd->valueint;
-                                                ipc_transport_send(IPC_HDR_CMD_INJECT, ipc_payload,
-                                                                   sizeof(ipc_payload));
-                                                ESP_LOGI(TAG, "Enqueued Downlink CMD %d for %s",
-                                                         cmd->valueint, mac->valuestring);
+                                        // Try to parse JSON command
+                                        cJSON *cmd_json = cJSON_Parse((const char *)decoded);
+                                        if (cmd_json) {
+                                            cJSON *mac = cJSON_GetObjectItem(cmd_json, "mac");
+                                            cJSON *cmd = cJSON_GetObjectItem(cmd_json, "cmd");
+                                            if (mac && mac->valuestring && cmd) {
+                                                uint8_t target_mac[6];
+                                                if (sscanf(mac->valuestring,
+                                                           "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                                                           &target_mac[0], &target_mac[1],
+                                                           &target_mac[2], &target_mac[3],
+                                                           &target_mac[4], &target_mac[5]) == 6) {
+                                                    uint8_t ipc_payload[7];
+                                                    memcpy(ipc_payload, target_mac, 6);
+                                                    ipc_payload[6] = (uint8_t)cmd->valueint;
+
+                                                    if (ipc_transport_send(
+                                                            IPC_HDR_CMD_INJECT, ipc_payload,
+                                                            sizeof(ipc_payload)) == ESP_OK) {
+                                                        ESP_LOGI(TAG,
+                                                                 "Enqueued Downlink CMD %d for %s",
+                                                                 cmd->valueint, mac->valuestring);
+                                                    } else {
+                                                        ESP_LOGW(TAG,
+                                                                 "IPC transport failed. NACKing "
+                                                                 "message.");
+                                                        should_ack =
+                                                            false;  // Transient failure, do not ACK
+                                                    }
+                                                }
                                             }
+                                            cJSON_Delete(cmd_json);
                                         }
-                                        cJSON_Delete(cmd_json);
+                                    } else {
+                                        ESP_LOGE(TAG, "Base64 decode failed or overflowed.");
                                     }
+                                }
+
+                                if (should_ack) {
+                                    cJSON_AddItemToArray(ack_ids,
+                                                         cJSON_CreateString(ack_id->valuestring));
                                 }
                             }
                         }

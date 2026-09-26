@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "crc16.h"
 #include "esp_log.h"
 #include "nvs.h"
@@ -88,6 +89,7 @@ esp_err_t offline_spooler_append(const uint8_t *pb_data, uint16_t length)
     written += fwrite(pb_data, 1, length, f);
     written += fwrite(&crc, 1, sizeof(crc), f);
 
+    fsync(fileno(f));
     fclose(f);
 
     if (written != (2 + 2 + length + 2)) {
@@ -113,57 +115,63 @@ esp_err_t offline_spooler_peek(uint32_t in_cursor, uint8_t *out_buffer, uint16_t
 
     fseek(f, in_cursor, SEEK_SET);
 
-    uint16_t magic = 0;
-    if (fread(&magic, 1, sizeof(magic), f) != sizeof(magic)) {
+    while (1) {
+        uint16_t magic = 0;
+        if (fread(&magic, 1, sizeof(magic), f) != sizeof(magic)) {
+            fclose(f);
+            return ESP_ERR_NOT_FOUND;  // EOF
+        }
+
+        if (magic != MAGIC_BYTES) {
+            in_cursor++;
+            fseek(f, in_cursor, SEEK_SET);
+            continue;
+        }
+
+        uint8_t len_buf[2];
+        if (fread(len_buf, 1, 2, f) != 2) {
+            fclose(f);
+            return ESP_FAIL;
+        }
+
+        uint16_t length = len_buf[0] | (len_buf[1] << 8);
+        if (length > max_len) {
+            in_cursor++;
+            fseek(f, in_cursor, SEEK_SET);
+            continue;
+        }
+
+        if (fread(out_buffer, 1, length, f) != length) {
+            fclose(f);
+            return ESP_FAIL;
+        }
+
+        uint16_t crc = 0;
+        if (fread(&crc, 1, sizeof(crc), f) != sizeof(crc)) {
+            fclose(f);
+            return ESP_FAIL;
+        }
+
+        uint8_t crc_calc_buf[2 + length];
+        crc_calc_buf[0] = len_buf[0];
+        crc_calc_buf[1] = len_buf[1];
+        memcpy(&crc_calc_buf[2], out_buffer, length);
+
+        uint16_t expected_crc = crc16_ccitt(crc_calc_buf, sizeof(crc_calc_buf));
+        if (crc != expected_crc) {
+            ESP_LOGW(TAG, "Spooler CRC mismatch at %lu. Skipping 1 byte.",
+                     (unsigned long)in_cursor);
+            in_cursor++;
+            fseek(f, in_cursor, SEEK_SET);
+            continue;
+        }
+
+        *out_next_cursor = ftell(f);
         fclose(f);
-        return ESP_ERR_NOT_FOUND;  // EOF
+
+        *out_len = length;
+        return ESP_OK;
     }
-
-    if (magic != MAGIC_BYTES) {
-        fclose(f);
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    uint8_t len_buf[2];
-    if (fread(len_buf, 1, 2, f) != 2) {
-        fclose(f);
-        return ESP_FAIL;
-    }
-
-    uint16_t length = len_buf[0] | (len_buf[1] << 8);
-    if (length > max_len) {
-        fclose(f);
-        return ESP_ERR_NO_MEM;
-    }
-
-    if (fread(out_buffer, 1, length, f) != length) {
-        fclose(f);
-        return ESP_FAIL;
-    }
-
-    uint16_t crc = 0;
-    if (fread(&crc, 1, sizeof(crc), f) != sizeof(crc)) {
-        fclose(f);
-        return ESP_FAIL;
-    }
-
-    uint8_t crc_calc_buf[2 + length];
-    crc_calc_buf[0] = len_buf[0];
-    crc_calc_buf[1] = len_buf[1];
-    memcpy(&crc_calc_buf[2], out_buffer, length);
-
-    uint16_t expected_crc = crc16_ccitt(crc_calc_buf, sizeof(crc_calc_buf));
-    if (crc != expected_crc) {
-        ESP_LOGE(TAG, "Spooler CRC mismatch");
-        fclose(f);
-        return ESP_ERR_INVALID_CRC;
-    }
-
-    *out_next_cursor = ftell(f);
-    fclose(f);
-
-    *out_len = length;
-    return ESP_OK;
 }
 
 void offline_spooler_commit(uint32_t new_cursor)
