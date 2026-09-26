@@ -193,7 +193,7 @@ esp_err_t offline_spooler_compact(void)
         return ESP_OK;  // No need to compact yet
     }
 
-    ESP_LOGI(TAG, "Compacting spooler. Current cursor: %lu", s_read_cursor);
+    ESP_LOGI(TAG, "Compacting spooler. Current cursor: %lu", (unsigned long)s_read_cursor);
 
     FILE *f_in = fopen(SPOOL_FILE_PATH, "rb");
     if (!f_in)
