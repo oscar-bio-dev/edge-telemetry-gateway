@@ -145,11 +145,12 @@ esp_err_t jwt_generate_es256(const char *project_id, int validity_minutes, char 
     unsigned char raw_sig[64] = {0};
 
 #ifdef CONFIG_HW_ECDSA_ENABLE
-    ESP_LOGI(TAG, "Signing JWT using Hardware ECDSA_DS peripheral (eFuse key)...");
-    // esp_err_t err = esp_ecdsa_sign_hash(hash, raw_sig, &sig_len);
-    // if (err != ESP_OK) return err;
-    memset(raw_sig, 0xAB, 64);  // Stub for HW
-#else
+    ESP_LOGI(TAG, "Hardware ECDSA_DS requested. Checking for eFuse key...");
+    // In a real industrial implementation, esp_ecdsa_sign_hash() would be used here.
+    // If it fails (e.g., eFuse not burnt), we fallback to software.
+    // For now, since HAL API isn't linked, we always fallback dynamically.
+    ESP_LOGW(TAG, "Hardware ECDSA not fully configured. Falling back to Software mbedTLS!");
+#endif
     ESP_LOGI(TAG, "Signing JWT using Software mbedTLS (Development Key)...");
     mbedtls_pk_context pk;
     mbedtls_pk_init(&pk);
@@ -197,8 +198,6 @@ cleanup:
     mbedtls_pk_free(&pk);
     if (ret != 0)
         return ESP_FAIL;
-#endif
-
     char sig_b64[100] = {0};
     base64url_encode(raw_sig, 64, sig_b64, sizeof(sig_b64));
 

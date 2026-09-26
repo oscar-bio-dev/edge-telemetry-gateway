@@ -22,6 +22,13 @@ menu "Edge Telemetry Gateway Configuration"
             Set to the Emulator URL for local lab tests.
             Set to https://pubsub.googleapis.com/... for production.
 
+    config GCP_PUBSUB_PULL_ENDPOINT
+        string "Google Cloud Pub/Sub Pull Endpoint URL"
+        default "http://192.168.0.32:8085/v1/projects/oscar-bio-dev-project/subscriptions/gateway-commands-sub:pull"
+        help
+            The HTTP/HTTPS endpoint for pulling downlink commands.
+            Set to the Emulator URL for local lab tests.
+
     config GCP_PUB_SUB_DIAGNOSTICS_TOPIC
         string "Google Cloud Pub/Sub Diagnostics Topic"
         default "gateway-diagnostics-topic"

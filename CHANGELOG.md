@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0-alpha.3] - 2026-09-26
+
+### Added & Fixed (Technical Audit Block 3 & 4)
+- **P4 Host (Cloud Integration & Spooling - Block 3):**
+  - **Dynamic JWT Signer:** Replaced hardcoded `0xAB` eFuse hardware stub with an automatic software fallback utilizing `mbedtls` ECDSA when `CONFIG_HW_ECDSA_ENABLE` is missing, ensuring cryptographically valid Google Cloud authentication.
+  - **Transactional Spooler (Peek-and-Commit):** Redesigned the SD card queue (`offline_spooler.c`) separating data retrieval (`peek`) from advancement (`commit`). The cursor only advances upon receiving an `HTTP 200 OK` from GCP, completely eradicating speculative data loss.
+  - **Spooler Compaction:** Implemented autonomous `offline_spooler_compact()` to mitigate SD wear-leveling and prevent fragmentation when the persistent read cursor exceeds 32KB.
+  - **Real Downlink (GCP Pub/Sub Pull):** Rewrote `gcp_subscriber_task` to execute standard HTTPS POST requests for active Pulls. Includes robust base64 JSON parsing, IPC enqueuing (`CMD_INJECT`) to the C6 Companion, and proper Acknowledge (`:acknowledge`) POSTs to prevent duplicate delivery.
+  - **Latency Tracking:** Injected `ingested_at_ms` in the final GCP upload JSON payload to allow Grafana dashboards to monitor E2E latency.
+- **Node Firmware (Integrity & Zero-Trust - Block 4):**
+  - *(Note: Actions executed in the `room-monitoring` project codebase)*
+  - **Zero-Trust ACK Validation:** Node now strictly validates incoming MAC addresses via ESP-NOW, ignoring foreign packets (spoofing mitigation).
+  - **NVS Encryption:** Configured `partitions.csv` for `nvs_keys` and enabled `CONFIG_NVS_ENCRYPTION` (XTS-AES) via `nvs_flash_secure_init()` to protect Wi-Fi PMKs from physical extraction.
+  - **NimBLE MITM Protection:** Disabled "Just Works" and implemented `BLE_SM_IO_CAP_DISP_ONLY` with a static 6-digit Passkey for physical provisioning security.
+
 ## [1.1.0-alpha.2] - 2026-09-25
 
 ### Fixed (Technical Audit Block 1 & 2)

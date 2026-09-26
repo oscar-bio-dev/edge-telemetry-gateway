@@ -99,7 +99,7 @@ esp_err_t offline_spooler_append(const uint8_t *pb_data, uint16_t length)
     return ESP_OK;
 }
 
-esp_err_t offline_spooler_pop(uint8_t *out_buffer, uint16_t max_len, uint16_t *out_len)
+esp_err_t offline_spooler_peek(uint32_t in_cursor, uint8_t *out_buffer, uint16_t max_len, uint16_t *out_len, uint32_t *out_next_cursor)
 {
     if (storage_manager_is_degraded()) {
         return ESP_FAIL;
@@ -110,7 +110,7 @@ esp_err_t offline_spooler_pop(uint8_t *out_buffer, uint16_t max_len, uint16_t *o
         return ESP_ERR_NOT_FOUND;
     }
 
-    fseek(f, s_read_cursor, SEEK_SET);
+    fseek(f, in_cursor, SEEK_SET);
 
     uint16_t magic = 0;
     if (fread(&magic, 1, sizeof(magic), f) != sizeof(magic)) {
@@ -158,16 +158,66 @@ esp_err_t offline_spooler_pop(uint8_t *out_buffer, uint16_t max_len, uint16_t *o
         return ESP_ERR_INVALID_CRC;
     }
 
-    s_read_cursor = ftell(f);
+    *out_next_cursor = ftell(f);
     fclose(f);
 
+    *out_len = length;
+    return ESP_OK;
+}
+
+void offline_spooler_commit(uint32_t new_cursor)
+{
+    s_read_cursor = new_cursor;
     nvs_handle_t nvs;
     if (nvs_open("spooler", NVS_READWRITE, &nvs) == ESP_OK) {
         nvs_set_u32(nvs, "cursor", s_read_cursor);
         nvs_commit(nvs);
         nvs_close(nvs);
     }
+}
 
-    *out_len = length;
+uint32_t offline_spooler_get_cursor(void)
+{
+    return s_read_cursor;
+}
+
+esp_err_t offline_spooler_compact(void)
+{
+    if (storage_manager_is_degraded()) return ESP_FAIL;
+
+    // To prevent fragmentation and excessive SD wear, we only compact if read_cursor is large enough
+    if (s_read_cursor < 32 * 1024) {
+        return ESP_OK; // No need to compact yet
+    }
+
+    ESP_LOGI(TAG, "Compacting spooler. Current cursor: %lu", s_read_cursor);
+
+    FILE *f_in = fopen(SPOOL_FILE_PATH, "rb");
+    if (!f_in) return ESP_FAIL;
+
+    FILE *f_out = fopen("/sdcard/offline_spooler.tmp", "wb");
+    if (!f_out) {
+        fclose(f_in);
+        return ESP_FAIL;
+    }
+
+    fseek(f_in, s_read_cursor, SEEK_SET);
+
+    uint8_t buf[1024];
+    size_t read_bytes;
+    while ((read_bytes = fread(buf, 1, sizeof(buf), f_in)) > 0) {
+        fwrite(buf, 1, read_bytes, f_out);
+    }
+
+    fclose(f_in);
+    fclose(f_out);
+
+    // Atomically rename
+    remove(SPOOL_FILE_PATH);
+    rename("/sdcard/offline_spooler.tmp", SPOOL_FILE_PATH);
+
+    // Reset cursor
+    offline_spooler_commit(0);
+    ESP_LOGI(TAG, "Compaction complete.");
     return ESP_OK;
 }

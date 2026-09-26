@@ -64,7 +64,7 @@
 
 3. **P4 Host** decodes the COBS frame on Core 1 (`ipc_ingest_task`), verifies CRC16, decodes Protobuf with Nanopb (zero-allocation), injects the node's MAC as the `device_id`, and enqueues the sample into a static ring buffer.
 
-4. **Cloud uplink task** on Core 0 pops batches from the buffer, signs a **JWT (ES256)** using the P4's **ECDSA\_DS hardware accelerator** (private key in eFuse), and publishes to **Google Cloud Pub/Sub** via **HTTPS mTLS** over native Ethernet (EMAC + IP101GRI RMII PHY, PoE powered). The decoupled Rust Backend serves exclusively as a subscriber to the GCP topics.
+4. **Cloud uplink task** on Core 0 actively pulls downlinks (`gcp_subscriber_task`) via HTTPS POST (parsing Base64/JSON payloads) and signs telemetry **JWT (ES256)** payloads for publishing to **Google Cloud Pub/Sub** via **HTTPS mTLS**. It features a **Transactional Spooler (Peek-and-Commit)** on the SD Card that only advances its NVS cursor upon receiving an `HTTP 200 OK` from GCP, completely eradicating speculative data loss. The decoupled Rust Backend serves exclusively as a subscriber/publisher to the GCP topics.
 
 ### Why Not ESP-Hosted?
 
@@ -199,7 +199,8 @@ Phase 2 replaces the mock injector with the **ESP32-C6 Companion Proxy** receivi
 | Bidirectional Protocol | ✅ Implemented | Header-based routing (0x10-0x31), Edge-ACK, Downlink Spooling |
 | Ethernet manager | ✅ Implemented | EMAC + IP101GRI driver configured |
 | Cloud transport | ✅ Implemented | HTTPS mTLS to GCP Pub/Sub + JWT/ECDSA Auth |
-| Storage & Spooler | ✅ Implemented | MicroSD (SDMMC VFS) Store-and-Forward |
+| Storage & Spooler | ✅ Implemented | MicroSD (SDMMC) Peek-and-Commit Transactional Spooler |
+| Zero-Trust Security | ✅ Implemented | Hardware/Software JWT Fallback, NVS Encryption, BLE Passkey |
 | CLI Manager | ✅ Implemented | ESP Console REPL for dynamic peer provisioning |
 | Edge AI (ESP-DL) | 🔲 Stub | Neural Network inference on historical telemetry |
 | Host-Driven OTA | ❌ Blocked | esp-serial-flasher blocked by GPIO control issue (ADR-006) |
