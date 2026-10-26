@@ -44,6 +44,10 @@
 
 #define ESPNOW_WIFI_CHANNEL CONFIG_ESPNOW_CHANNEL
 
+#ifndef CONFIG_ESPNOW_LMK
+#define CONFIG_ESPNOW_LMK "lmk1234567890123"
+#endif
+
 static const char *TAG = "espnow_rx";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -153,6 +157,16 @@ static void ack_dispatch_task(void *arg)
         memcpy(&ack_frame[1], ack_pb, stream.bytes_written);
 
         /* -- Step 2: Send ACK via ESP-NOW (unicast) --------------- */
+        /* Auto-register dynamic peer if not already in ESP-NOW table (TICKET-022) */
+        if (!esp_now_is_peer_exist(item.src_mac)) {
+            esp_err_t peer_err =
+                espnow_add_dynamic_peer(item.src_mac, (const uint8_t *)CONFIG_ESPNOW_LMK);
+            if (peer_err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to auto-register peer %02X:%02X:..:%02X: %s", item.src_mac[0],
+                         item.src_mac[1], item.src_mac[5], esp_err_to_name(peer_err));
+            }
+        }
+
         esp_err_t err = esp_now_send(item.src_mac, ack_frame, 1 + stream.bytes_written);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "ACK send failed to %02X:%02X:..:%02X: %s", item.src_mac[0],

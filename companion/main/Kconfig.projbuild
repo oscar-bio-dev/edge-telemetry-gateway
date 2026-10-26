@@ -14,6 +14,13 @@ menu "Edge Companion (C6) Configuration"
         help
             16-byte Primary Master Key. Must match exactly on both Node and Gateway.
 
+    config ESPNOW_LMK
+        string "Local Master Key (LMK)"
+        default "lmk1234567890123"
+        help
+            16-byte Local Master Key for CCMP-128 unicast encryption.
+            Must match the LMK configured on the sensor nodes.
+
 
     config IPC_UART_BAUD_RATE
         int "IPC UART Baud Rate (Companion -> Host)"
